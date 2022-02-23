@@ -1,5 +1,13 @@
-![Demonstration of a ConvCNP](https://github.com/cambridge-mlg/convcnp/blob/master/demo_images/convcnp.gif)
+<!-- ![Demonstration of a ConvCNP](https://github.com/cambridge-mlg/convcnp/blob/master/demo_images/convcnp.gif) -->
 
+# multiouput-corrnp
+
+
+
+
+
+<!-- ![Demonstration of a ConvCNP](https://github.com/cambridge-mlg/convcnp/blob/master/demo_images/convcnp.gif)
+<!-- 
 # Convolutional Conditional Neural Processes
 
 This repository contains code for the 1-dimensional experiments from
@@ -52,8 +60,8 @@ Common issues:
     particular version.
 
 ## Expository Notebooks
-For a tutorial-style exposition of ConvCNPs, see the following two
-expository notebooks:
+For a tutorial-style exposition of ConvCNPs, see the following two -->
+<!-- expository notebooks:
 
 * [Implementing and Training Convolutional Conditional Neural Processes](https://github.com/cambridge-mlg/convcnp/blob/master/convcnp_regression.ipynb), and
 * [Sequential Inference with Convolutional Conditional Neural Processes](https://github.com/cambridge-mlg/convcnp/blob/master/sequential_inference.ipynb).
@@ -89,7 +97,7 @@ To reproduce the numbers from all the 1d experiments from the paper at once, you
 can use `./run_all.sh`.
 
 For more options, please see `python train.py --help`:
-
+ -->
 ```
 usage: train.py [-h] [--root ROOT] [--train] [--epochs EPOCHS]
                 [--learning_rate LEARNING_RATE] [--weight_decay WEIGHT_DECAY]
@@ -118,7 +126,7 @@ optional arguments:
 ```
 
 
-## Reference
+<!-- ## Reference
 
 Gordon, J., Bruinsma W. P., Foong, A. Y. K., Requeima, J., Dubois Y.,
 Turner, R. E.
