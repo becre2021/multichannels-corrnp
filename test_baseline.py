@@ -6,15 +6,13 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 #import stheno.torch as stheno
-
-import convcnp.data
-from convcnp.experiment import report_loss, RunningAverage
+#import convcnp.data
+#from convcnp.experiment import report_loss, RunningAverage
 from convcnp.utils import gaussian_logpdf, init_sequential_weights, to_multiple
 #from convcnp.architectures import SimpleConv, UNet
 
 from test_cnnmodels import get_cnnmodels
-
-  
+from attrdict import AttrDict  
 
 
 def to_numpy(x):
@@ -72,8 +70,10 @@ class Convcnp(nn.Module):
         self.sigma_fn = nn.Softplus()        
         
         self.modelname = 'base'
-        self.samplertype='exact'
-    
+        self.num_samples = 1
+        self.gppriorscale = 0.0 
+        
+        
         self.in_dims = in_dims
         self.out_dims= out_dims
         self.num_channels = num_channels
@@ -82,21 +82,10 @@ class Convcnp(nn.Module):
                                    out_channels = 8,
                                    init_lengthscale=init_lengthscale)
           
-#         self.cnn = nn.Sequential(
-#             nn.Conv1d(8, 16, 5, 1, 2),            
-#             nn.ReLU(),            
-#             nn.Conv1d(16, 16, 5, 1, 2),
-#             nn.ReLU(),
-#             nn.Conv1d(16, 16, 5, 1, 2),
-#             nn.ReLU(),
-#             nn.Conv1d(16, 16, 5, 1, 2),
-#             nn.ReLU(),            
-#             nn.Conv1d(16, 8, 5, 1, 2),
-#         )                
+
         self.cnntype = cnntype
         self.cnn = get_cnnmodels(cnntype) 
-        #self.cnn = get_cnnmodels('deep') #not compatiable yey
-        
+
     
         #self.nbasis = 5
         self.nbasis = nbasis 
@@ -159,30 +148,36 @@ class Convcnp(nn.Module):
         
         nb,npoints,nchannel = x.size()        
         x_grid = self.compute_xgrid(x,y,x_out)
+        #print(x_grid.size())
         concat_n_h1h0,n_h1,h1,h0 = self.encoder(x,y,x_grid)        
-                
+          
+        #print(x_grid.shape,concat_n_h1h0.shape)
         h_grid = self.compute_hgrid(concat_n_h1h0)
-        pmean = self.mean_layer(x_grid,h_grid,x_out)
-        pstd =  self.logstd_layer(x_grid,h_grid,x_out)
-        return pmean, 0.01+0.99*F.softplus(pstd)
-        #return mean, std 
+        pmu = self.mean_layer(x_grid,h_grid,x_out)
+        plogstd =  self.logstd_layer(x_grid,h_grid,x_out)
+        #return pmean, 0.01+0.99*F.softplus(pstd)
+        #return pmean, 0.1+0.9*F.softplus(pstd)
+    
+        outs = AttrDict()
+        outs.pymu = pmu
+        outs.pystd = 0.1+0.9*F.softplus(plogstd)
+        #outs.regloss = None       
+        return outs        
+    
+    
     
     @property
     def num_params(self):
         """Number of parameters in model."""
         return np.sum([torch.tensor(param.shape).prod()for param in self.parameters()])
 
-    def compute_regloss_terms(self):
-        #regtotal = self.gpsampler.regloss
-        return 0.0
 
     
-    
-    
-    
-    
-
-
+    def sample_functionalfeature(self,x,y,xout,numsamples=1):
+        nb,npoints,nchannel = x.size()        
+        x_grid = self.compute_xgrid(x,y,xout)
+        concat_n_h1h0,n_h1,h1,h0 = self.encoder(x,y,x_grid)        
+        return n_h1,x_grid 
 
 
 
@@ -232,11 +227,10 @@ class ConvDeepSet(nn.Module):
             x2 = x1            
         # Compute shapes.            
         nbatch,npoints,nchannel = x1.size()
+        scales = (self.sigma).exp()[None, None, None, :]                
         
         #compute rbf over multiple channels
         dists = x1.unsqueeze(dim=2) - x2.unsqueeze(dim=1)        
-        scales = self.sigma_fn(self.sigma)[None, None, None, :]                
-        
         factors = 1
         if dists.size(-1) != scales.size(-1):
             factors = scales.size(-1) // dists.size(-1) 
@@ -244,7 +238,7 @@ class ConvDeepSet(nn.Module):
         #print(dists.size(),scales.size())
         
         
-        dists = dists/(scales + eps)
+        dists /= (scales + eps)
         wt = torch.exp(-0.5*dists**2)   
         return wt,factors
 
@@ -306,13 +300,14 @@ class FinalLayer(nn.Module):
                 
         #self.g = self.build_weight_model()            
         linear = nn.Sequential(nn.Linear(self.nbasis, self.out_channels))        
-        self.g =init_sequential_weights(linear)
+        self.g = init_sequential_weights(linear)
             
 
         
-        self.sigma = nn.Parameter(np.log(min_init_lengthscale+init_lengthscale*torch.ones(self.nbasis,self.in_channels)), requires_grad=True)             #self.mu = nn.Parameter(np.log(1* torch.rand(self.nbasis,self.in_channels)), requires_grad=True)
+        self.sigma = nn.Parameter(np.log(min_init_lengthscale+init_lengthscale*torch.ones(self.nbasis,self.in_channels)), requires_grad=True)    
+        #self.mu = nn.Parameter(np.log(1* torch.rand(self.nbasis,self.in_channels)), requires_grad=True)
         
-
+        
     
     def compute_rbf(self,x1,x2=None):
         if x2 is None:
@@ -323,15 +318,15 @@ class FinalLayer(nn.Module):
         #compute rbf over multiple channels
         dists = x1.unsqueeze(dim=2) - x2.unsqueeze(dim=1)
         dists = dists.unsqueeze(dim=-2).repeat(1,1,1,self.nbasis,1)        
-        scales = self.sigma_fn(self.sigma)[None, None, None, :,:]  
+        scales = self.sigma.exp()[None, None, None, :,:]  
         
-        dists /= (scales + eps)
+        dists = dists/(scales + eps)
         wt = torch.exp(-0.5*dists**2)   
         return wt
         
         
     #nbasis == 5 case    
-    def forward(self, x_grid, h_grid, target_x):
+    def forward(self, x_grid, h_grid, target_x ,iterratio=None):
         """Forward pass through the layer with evaluations at locations t.
 
         Args:
@@ -353,39 +348,105 @@ class FinalLayer(nn.Module):
         h = h_grid[:,:,None,:] #(nb,ngrid,1,nbasis,nchannels)
         h_out = (h*wt).sum(dim=1) #(nb,ntarget,nbasis,nchannels)
         
+        
         h_out = h_out.transpose(-2,-1) #(nb,ntarget,nchannels,nbasis)
-        h_out = self.g(h_out).squeeze() #(nb,ntarget,nchannels,1)
+        #h_out = self.g(h_out).squeeze() #(nb,ntarget,nchannels,1)
+        h_out = self.g(h_out) #(nb,ntarget,nchannels,1)
         
-        
-        if h_out.dim() == 2:
-            h_out = h_out.unsqueeze(dim=0)            
+        if h_out.dim() == 4:
+            h_out = h_out[...,0]
         return h_out
     
     
     
     
+
     
-    
-    
-    
-    
-    
-from torch.distributions.normal import Normal
-from torch.distributions.uniform import Uniform
-def compute_loss_baseline( pred_mu, pred_std, target_y):    
-    """
-    compute baselineloss    
-    """    
-    p_yCc = Normal(loc=pred_mu, scale=pred_std)    
-    log_p = p_yCc.log_prob(target_y)          # size = [batch_size, *]        
-    sumlog_p = log_p.sum(dim=(-2,-1))         # size = [batch_size]
-    #print('log_p.size(),sumlog_p.size()')    
-    #print( -sumlog_p.mean())
-    return -sumlog_p.mean()  #averages each loss over batches 
 
     
     
     
+
+#     p_yCc = Normal(loc=pred_mu, scale=pred_std)    
+
+from torch.distributions.normal import Normal
+from torch.distributions.uniform import Uniform
+def compute_loss_baseline( pred_mu, pred_std, target_y, intrain=True,reduce=True):    
+    """ compute loss for conditional Np models
+
+    Args:
+        pred_mu:  (nbatch,ndata,nchannel)
+        pred_std: (nbatch,ndata,nchannel)
+        target_y: (nbatch,ndata,nchannel)
+    Returns:
+        logloss: 1
+
+    """
+
+    #print('pred_mu.shape,pred_std.shape,target_y.shape')    
+    #print(pred_mu.shape,pred_std.shape,target_y.shape)
+    
+    
+    p_yCc = Normal(loc=pred_mu, scale=pred_std)    
+    log_p = p_yCc.log_prob(target_y)          # size = [batch_size, *]        
+    
+    if intrain:
+        reduced_log_p = log_p.sum(dim=(-2,-1))  # size = [batch_size]
+        #neglogloss = -reduced_log_p  #averages each loss over batches 
+        neglogloss = -reduced_log_p 
+        
+    else:
+        reduced_log_p = log_p.mean(dim=(-2,-1))
+        #neglogloss = -reduced_log_p.mean()  #averages each loss over batches 
+        neglogloss = -reduced_log_p
+   
+    if reduce:
+        return  neglogloss.mean() 
+    else:
+        return  neglogloss 
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+# from torch.distributions.normal import Normal
+# from torch.distributions.uniform import Uniform
+# # def compute_loss_baseline( pred_mu, pred_std, target_y):    
+# #     """
+# #     compute baselineloss    
+# #     """    
+# #     p_yCc = Normal(loc=pred_mu, scale=pred_std)    
+# #     log_p = p_yCc.log_prob(target_y)          # size = [batch_size, *]        
+# #     sumlog_p = log_p.sum(dim=(-2,-1))         # size = [batch_size]
+# #     #print('log_p.size(),sumlog_p.size()')    
+# #     #print( -sumlog_p.mean())
+# #     return -sumlog_p.mean()  #averages each loss over batches 
+
+    
+    
+
+# def compute_loss_baseline( pred_mu, pred_std, target_y, intrain=True):    
+#     """
+#     compute baselineloss    
+#     """    
+#     p_yCc = Normal(loc=pred_mu, scale=pred_std)    
+#     log_p = p_yCc.log_prob(target_y)          # size = [batch_size, *]        
+    
+#     if intrain:
+#         reduced_log_p = log_p.sum(dim=(-2,-1))         # size = [batch_size]
+#     else:
+#         reduced_log_p = log_p.mean(dim=(-2,-1))
+#         #print('log_p.size(),sumlog_p.size()')    
+#         #print( -sumlog_p.mean())
+#     return -reduced_log_p.mean()  #averages each loss over batches 
+
+    
+        
     
     
     

@@ -8,7 +8,6 @@ from torch.autograd import Variable
 from torch.distributions.normal import Normal
 from torch.distributions.uniform import Uniform
 
-import convcnp.data
 from convcnp.experiment import report_loss, RunningAverage
 from convcnp.utils import gaussian_logpdf, init_sequential_weights, to_multiple
 from convcnp.architectures import SimpleConv, UNet
@@ -16,6 +15,7 @@ import math
 
 from test_baseline import ConvDeepSet
 from test_cnnmodels import get_cnnmodels
+from attrdict import AttrDict  
 
 
 def to_numpy(x):
@@ -76,10 +76,7 @@ class Convcnp_latent(nn.Module):
         super(Convcnp_latent, self).__init__()
         self.activation = nn.Sigmoid()
         self.sigma_fn = nn.Softplus()                
-        
         self.modelname = 'baselatent'        
-        self.samplertype='exact'
-        
         # Instantiate encoder
         self.in_dims = 1
         self.out_dims = 1
@@ -99,6 +96,7 @@ class Convcnp_latent(nn.Module):
         self.cnn = get_cnnmodels(cnntype)  #in:8 -> out:8
         #self.cnn = get_cnnmodels('deep') # not compatiable yet
         
+        self.gppriorscale = 0.0 
 
         self.num_samples = num_postsamples
         self.nbasis = nbasis 
@@ -107,9 +105,14 @@ class Convcnp_latent(nn.Module):
         self.smoother =  FinalLayer(in_channels=self.num_channels,
                                     nbasis = self.nbasis,
                                     init_lengthscale=init_lengthscale)
-        pred_linear = nn.Sequential(nn.Linear(self.num_channels*self.nbasis,2*self.num_channels))         
-        self.pred_linear = init_sequential_weights(pred_linear)
         
+        
+#         pred_linear = nn.Sequential(nn.Linear(self.num_channels*self.nbasis,2*self.num_channels))         
+#         self.pred_linear = init_sequential_weights(pred_linear)
+        
+        self.pred_linear_mu = init_sequential_weights(nn.Sequential(nn.Linear(self.num_features,self.num_channels)))
+        self.pred_linear_logstd = init_sequential_weights(nn.Sequential(nn.Linear(self.num_features,self.num_channels)))
+       
         
         
 
@@ -140,17 +143,29 @@ class Convcnp_latent(nn.Module):
         return h_grid
                 
         
-    def samples_z(self,h_mu,h_std,num_samples=10):        
+        
+        
+    def samples_z(self,h_mu,h_std,num_samples=10):    
         """
         inputs:
-            h_mu: (nb,ngrid,num_feature)
-            h_std: (nb,ngrid,num_feature)            
+            h_mu : (nb,ngrid,nfeature)
+            h_std : (nb,ngrid,nfeature)
+            
         """
+        
+        
         h_mu = h_mu[None,:,:,:]
-        h_std = 0.01+0.99*torch.sigmoid(h_std)[None,:,:,:]        
-        #eps = torch.randn(num_samples,h_std.size(1),h_std.size(-1))  :  suspect that too volatile 
-        eps = torch.randn(num_samples,1,h_std.size(-1))               #: change as 
-        eps = Variable(eps[:,:,None,:]).to(h_mu.device)
+        #h_std = 0.01+0.99*torch.sigmoid(h_std)[None,:,:,:]        
+        h_std = 0.1+0.9*torch.sigmoid(h_std)[None,:,:,:]
+        #h_std = 0.1+0.4*torch.sigmoid(h_std)[None,:,:,:]        #best out of candidate
+
+        
+        #eps = torch.randn(num_samples,h_std.size(1),1,h_std.size(-1)).to(h_mu.device)
+        eps = torch.randn(num_samples,h_std.size(1),h_std.size(-2),h_std.size(-1)).to(h_mu.device)
+        
+        #eps = torch.randn(num_samples,1,h_std.size(-1))     #less volatile is not good for convlnp
+        #print('eps.shape: {}'.format(eps.shape))
+        #eps = Variable(eps[:,:,None,:]).to(h_mu.device 
         
         z_samples =  h_mu + h_std*eps        
         return z_samples,h_mu.squeeze(),h_std.squeeze()
@@ -203,16 +218,27 @@ class Convcnp_latent(nn.Module):
         smoothed_hout = smoothed_hout.permute(1,0,2,3)
         
         # predict
-        pred_hout = self.pred_linear(smoothed_hout)        
-        pmu,plogstd = pred_hout.split((self.num_channels,self.num_channels),dim=-1)
+        #pred_hout = self.pred_linear(smoothed_hout)        
+        #pmu,plogstd = pred_hout.split((self.num_channels,self.num_channels),dim=-1)
+        
+        pmu = self.pred_linear_mu(smoothed_hout)
+        plogstd = self.pred_linear_logstd(smoothed_hout) 
+        
         
         
         #print('y_mu.shape,y_logstd.shape')
         #print(pmu.shape,plogstd.shape)
-        if yout is None:
-            return pmu, 0.01+0.99*F.softplus(plogstd)
-        else:
-            return pmu, 0.01+0.99*F.softplus(plogstd),zsamples_t,(hmu_c,hstd_c),(hmu_t,hstd_t)
+        #if yout is None:
+        #    return pmu, 0.1+0.9*F.softplus(plogstd)
+        #else:
+        #    return pmu, 0.1+0.9*F.softplus(plogstd),zsamples_t,(hmu_c,hstd_c),(hmu_t,hstd_t)
+
+        outs = AttrDict()
+        outs.pymu = pmu
+        outs.pystd = 0.1+0.9*F.softplus(plogstd)
+        #outs.regloss = None       
+        return outs        
+
     
     
     @property
@@ -221,9 +247,11 @@ class Convcnp_latent(nn.Module):
         return np.sum([torch.tensor(param.shape).prod()for param in self.parameters()])
 
 
-    def compute_regloss_terms(self):
-        #regtotal = self.gpsampler.regloss
-        return 0.0
+    def sample_functionalfeature(self,x,y,xout,numsamples=1):
+        nb,npoints,nchannel = x.size()        
+        x_grid = self.compute_xgrid(x,y,xout)
+        concat_n_h1h0,n_h1,h1,h0 = self.encoder(x,y,x_grid)        
+        return n_h1,x_grid 
     
     
     
@@ -234,18 +262,6 @@ class Convcnp_latent(nn.Module):
     
     
     
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-
     
     
 class FinalLayer(nn.Module):
@@ -323,67 +339,150 @@ class FinalLayer(nn.Module):
     
     
     
-def compute_loss_baselinelatent( pred_mu, pred_std, target_y, z_samples=None, qz_c=None, qz_ct=None):
+# def compute_loss_baselinelatent( pred_mu, pred_std, target_y, z_samples=None, qz_c=None, qz_ct=None):
+    
+#     """
+#     compute NLLLossLNPF
+#     # computes approximate LL in a numerically stable way
+#     # LL = E_{q(z|y_cntxt)}[ \prod_t p(y^t|z)]
+#     # LL MC = log ( mean_z ( \prod_t p(y^t|z)) )
+#     # = log [ sum_z ( \prod_t p(y^t|z)) ] - log(n_z_samples)
+#     # = log [ sum_z ( exp \sum_t log p(y^t|z)) ] - log(n_z_samples)
+#     # = log_sum_exp_z ( \sum_t log p(y^t|z)) - log(n_z_samples)
+    
+#     """
+    
+#     def sum_from_nth_dim(t, dim):
+#         """Sum all dims from `dim`. E.g. sum_after_nth_dim(torch.rand(2,3,4,5), 2).shape = [2,3]"""
+#         return t.view(*t.shape[:dim], -1).sum(-1)
+
+
+#     def sum_log_prob(prob, sample):
+#         """Compute log probability then sum all but the z_samples and batch."""    
+#         log_p = prob.log_prob(sample)          # size = [n_z_samples, batch_size, *]    
+#         sum_log_p = sum_from_nth_dim(log_p, 2) # size = [n_z_samples, batch_size]
+#         return sum_log_p
+
+    
+#     p_yCc = Normal(loc=pred_mu, scale=pred_std)    
+#     if qz_c is not None:
+#         qz_c = Normal(loc=qz_c[0], scale=qz_c[1])
+        
+#     if qz_ct is not None:
+#         qz_ct = Normal(loc=qz_ct[0], scale=qz_ct[1])
+        
+        
+#     n_z_samples, batch_size, *n_trgt = p_yCc.batch_shape    
+#     # \sum_t log p(y^t|z). size = [n_z_samples, batch_size]
+#     sum_log_p_yCz = sum_log_prob(p_yCc, target_y)
+
+    
+#     # uses importance sampling weights if necessary
+#     if z_samples is not None:
+#         # All latents are treated as independent. size = [n_z_samples, batch_size]
+#         sum_log_qz_c = sum_log_prob(qz_c, z_samples)
+#         sum_log_qz_ct = sum_log_prob(qz_ct, z_samples)
+#         # importance sampling : multiply \prod_t p(y^t|z)) by q(z|y_cntxt) / q(z|y_cntxt, y_trgt)
+#         # i.e. add log q(z|y_cntxt) - log q(z|y_cntxt, y_trgt)
+#         #print(sum_log_p_yCz, sum_log_qz_c, sum_log_qz_ct)
+#         sum_log_w_k = sum_log_p_yCz + sum_log_qz_c - sum_log_qz_ct
+#     else:
+#         sum_log_w_k = sum_log_p_yCz
+
+#     # log_sum_exp_z ... . size = [batch_size]
+#     log_S_z_sum_p_yCz = torch.logsumexp(sum_log_w_k, 0)
+#     # - log(n_z_samples)
+#     log_E_z_sum_p_yCz = log_S_z_sum_p_yCz - math.log(n_z_samples)    
+
+#     #print('log_E_z_sum_p_yCz {}'.format(log_E_z_sum_p_yCz.mean().item()))
+#     # NEGATIVE log likelihood
+#     #return -log_E_z_sum_p_yCz
+#     return -log_E_z_sum_p_yCz.mean()  #averages each loss over batches 
+
+    
+    
+    
+def compute_loss_baselinelatent( pred_mu,pred_std, target_y , intrain=True ,reduce=True):
+    """ compute loss for latent Np models
+    
+    Args:
+        pred_mu:  (nsamples,nbatch,ndata,nchannel)
+        pred_std: (nsamples,nbatch,ndata,nchannel)
+        target_y: (nbatch,ndata,nchannel)
+    Returns:
+        neglogloss: 1
     
     """
-    compute NLLLossLNPF
-    # computes approximate LL in a numerically stable way
-    # LL = E_{q(z|y_cntxt)}[ \prod_t p(y^t|z)]
-    # LL MC = log ( mean_z ( \prod_t p(y^t|z)) )
-    # = log [ sum_z ( \prod_t p(y^t|z)) ] - log(n_z_samples)
-    # = log [ sum_z ( exp \sum_t log p(y^t|z)) ] - log(n_z_samples)
-    # = log_sum_exp_z ( \sum_t log p(y^t|z)) - log(n_z_samples)
+    #(nsamples,nb,ndata,nchannels) 
+    p_yCc = Normal(loc=pred_mu, scale=pred_std)                
     
-    """
-    
-    def sum_from_nth_dim(t, dim):
-        """Sum all dims from `dim`. E.g. sum_after_nth_dim(torch.rand(2,3,4,5), 2).shape = [2,3]"""
-        return t.view(*t.shape[:dim], -1).sum(-1)
-
-
-    def sum_log_prob(prob, sample):
-        """Compute log probability then sum all but the z_samples and batch."""    
-        log_p = prob.log_prob(sample)          # size = [n_z_samples, batch_size, *]    
-        sum_log_p = sum_from_nth_dim(log_p, 2) # size = [n_z_samples, batch_size]
-        return sum_log_p
-
-    
-    p_yCc = Normal(loc=pred_mu, scale=pred_std)    
-    if qz_c is not None:
-        qz_c = Normal(loc=qz_c[0], scale=qz_c[1])
+    if intrain:
+        #sum over channels and targets          
+        sumlogprob = p_yCc.log_prob(target_y).sum(dim=(-1,-2))   #(nsamples,nb)   
+        logmeanexp_sumlogprob= torch.logsumexp(sumlogprob, dim=0) -  math.log(sumlogprob.size(0)) 
+        neglogloss = -logmeanexp_sumlogprob #mean over batches
+    else :
+        #sum over channels and targets 
+        meanlogprob = p_yCc.log_prob(target_y).sum(dim=(-1,-2))   #(nsamples,nb) 
+        logmeanexp_sumlogprob= torch.logsumexp(meanlogprob, dim=0) -  math.log(meanlogprob.size(0))     
+        neglogloss = -logmeanexp_sumlogprob
+        mean_factor = np.prod(list(target_y.shape[1:]))
+        neglogloss /= mean_factor
         
-    if qz_ct is not None:
-        qz_ct = Normal(loc=qz_ct[0], scale=qz_ct[1])
-        
-        
-    n_z_samples, batch_size, *n_trgt = p_yCc.batch_shape    
-    # \sum_t log p(y^t|z). size = [n_z_samples, batch_size]
-    sum_log_p_yCz = sum_log_prob(p_yCc, target_y)
-
-    
-    # uses importance sampling weights if necessary
-    if z_samples is not None:
-        # All latents are treated as independent. size = [n_z_samples, batch_size]
-        sum_log_qz_c = sum_log_prob(qz_c, z_samples)
-        sum_log_qz_ct = sum_log_prob(qz_ct, z_samples)
-        # importance sampling : multiply \prod_t p(y^t|z)) by q(z|y_cntxt) / q(z|y_cntxt, y_trgt)
-        # i.e. add log q(z|y_cntxt) - log q(z|y_cntxt, y_trgt)
-        #print(sum_log_p_yCz, sum_log_qz_c, sum_log_qz_ct)
-        sum_log_w_k = sum_log_p_yCz + sum_log_qz_c - sum_log_qz_ct
+    if reduce:
+        return  neglogloss.mean() 
     else:
-        sum_log_w_k = sum_log_p_yCz
-
-    # log_sum_exp_z ... . size = [batch_size]
-    log_S_z_sum_p_yCz = torch.logsumexp(sum_log_w_k, 0)
-    # - log(n_z_samples)
-    log_E_z_sum_p_yCz = log_S_z_sum_p_yCz - math.log(n_z_samples)    
-
-    #print('log_E_z_sum_p_yCz {}'.format(log_E_z_sum_p_yCz.mean().item()))
-    # NEGATIVE log likelihood
-    #return -log_E_z_sum_p_yCz
-    return -log_E_z_sum_p_yCz.mean()  #averages each loss over batches 
+        return  neglogloss 
+        
+#    return neglogloss
 
     
+#     if intrain:
+#         reduced_log_p = log_p.sum(dim=(-2,-1))  # size = [batch_size]
+#         #neglogloss = -reduced_log_p  #averages each loss over batches 
+#         neglogloss = -reduced_log_p 
+        
+#     else:
+#         reduced_log_p = log_p.mean(dim=(-2,-1))
+#         #neglogloss = -reduced_log_p.mean()  #averages each loss over batches 
+#         neglogloss = -reduced_log_p
+   
+    
+    
+
+
+# def compute_loss_baselinelatent( pred_mu,pred_std, target_y , intrain=True):
+
+#     """
+#     compute NLLLossLNPF
+#     # computes approximate LL in a numerically stable way
+#     # LL = E_{q(z|y_cntxt)}[ \prod_t p(y^t|z)]
+#     # LL MC = log ( mean_z ( \prod_t p(y^t|z)) )
+#     # = log [ sum_z ( \prod_t p(y^t|z)) ] - log(n_z_samples)
+#     # = log [ sum_z ( exp \sum_t log p(y^t|z)) ] - log(n_z_samples)
+#     # = log_sum_exp_z ( \sum_t log p(y^t|z)) - log(n_z_samples)
+    
+#     """
+#     #(nsamples,nb,ndata,nchannels) 
+#     p_yCc = Normal(loc=pred_mu, scale=pred_std)                
+    
+#     if intrain:
+#         #(numsamples,nb) 
+#         sumlogprob = p_yCc.log_prob(target_y).sum(dim=(-1,-2))   #sum over channels and targets    
+#         logmeanexp_sumlogprob= torch.logsumexp(sumlogprob, dim=0) -  math.log(sumlogprob.size(0)) 
+
+#         #meanlogprob = p_yCc.log_prob(target_y).mean(dim=(-1,-2))     #mean over channels and targets 
+#         #logmeanexp_sumlogprob= torch.logsumexp(meanlogprob, dim=0) -  math.log(meanlogprob.size(0))     
+#     else :
+#         #(numsamples,nb) 
+#         #sumlogprob = p_yCc.log_prob(target_y).sum(dim=(-1,-2))   #sum over channels and targets    
+#         #logmeanexp_sumlogprob= torch.logsumexp(sumlogprob, dim=0) -  math.log(sumlogprob.size(0)) 
+
+#         meanlogprob = p_yCc.log_prob(target_y).mean(dim=(-1,-2))     #mean over channels and targets 
+#         logmeanexp_sumlogprob= torch.logsumexp(meanlogprob, dim=0) -  math.log(meanlogprob.size(0))     
+        
+#     return -logmeanexp_sumlogprob.mean() #mean over batches
+
     
     
     

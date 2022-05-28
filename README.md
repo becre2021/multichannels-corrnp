@@ -31,6 +31,7 @@ We provide the implementation and experiment results for the paper: Bayesian Con
 * torch = 1.7
 * pandas
 * scipy
+* attrdict
 
 
 ## Dataset
@@ -53,6 +54,7 @@ We provide the implementation and experiment results for the paper: Bayesian Con
 * https://github.com/makora9143/pytorch-convcnp 
 * https://github.com/GAMES-UChile/mogptk/
 * https://github.com/juho-lee/bnp/tree/master/regression
+* https://github.com/j-wilson/GPflowSampling
 
 
 

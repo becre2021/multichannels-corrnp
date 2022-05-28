@@ -1,8 +1,12 @@
+# see example for wandb : https://github.com/wandb/examples
 import wandb        
+
 import numpy as np
 from dataset_multitask_1d import motask_generator
 import torch
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+
 
 
 
@@ -45,36 +49,8 @@ def merge_allset_1d(xc,yc,xt,yt):
 
 #from train_loss import compute_nll,compute_nll_latent    
 #max_grad_norm = 1
-
-# def scheduler_reglambda(trainprogress_ratio):
-#     if trainprogress_ratio <= 0.1:
-#         reglambda = 10**3    
-#     if trainprogress_ratio <= 0.25:
-#         reglambda = 10**2
-#     elif trainprogress_ratio <= 0.5:
-#         reglambda = 10**1    
-#     elif trainprogress_ratio <= 0.75:
-#         reglambda = 10**0    
-#     else:
-#         reglambda = 0    
-#     return reglambda
-
-def scheduler_reglambda(trainprogress_ratio):
-    if trainprogress_ratio <= 0.25:
-        reglambda = 10**4
-    elif trainprogress_ratio <= 0.5:
-        reglambda = 10**3    
-    elif trainprogress_ratio <= 0.75:
-        reglambda = 10**2    
-    else:
-        reglambda = 10**1    
-    return reglambda
-
-
-
-#reglamda=1.
 proposed_model_list = ['gpind','gpdep']
-def train_epochs_with_dict(set_dict_epoch,model,opt,lossfun,trainmodel='convcnp',trainprogress_ratio = 0.0):
+def train_epochs_with_dict(set_dict_epoch,model,opt,lossfun,trainmodel='convcnp'):
     model.train()
     likelihoods = []
     
@@ -95,16 +71,13 @@ def train_epochs_with_dict(set_dict_epoch,model,opt,lossfun,trainmodel='convcnp'
         #y_mean,y_std = model(context_x.cuda(),context_y.cuda(),target_x.cuda())    
         #obj = lossfun( y_mean,y_std, target_y.cuda())
         
-        #predict & train models
-        target_x,target_y = merge_allset_1d(context_x,context_y,target_x,target_y)
+        #predict & train models        
+        #target_x,target_y = merge_allset_1d(context_x,context_y,target_x,target_y)   #merge conntext and target set for training
         y_mean,y_std = model(context_x.cuda(),context_y.cuda(),target_x.cuda())    
-        obj = lossfun( y_mean,y_std, target_y.cuda())
-
-        reglambda = scheduler_reglambda(trainprogress_ratio)        
-        #obj += reglambda*model.compute_regloss_terms()
-        #print('trainprogress_ratio,reglambda:{},{},{}'.format(trainprogress_ratio,reglambda,reglambda*model.compute_regloss_terms()))
-
-        #print(obj,reglamda*model.compute_regloss_terms())
+        obj = lossfun( y_mean,y_std, target_y.cuda(), intrain=True)
+        
+        
+        
         
         
         obj.backward()
@@ -117,7 +90,6 @@ def train_epochs_with_dict(set_dict_epoch,model,opt,lossfun,trainmodel='convcnp'
         
     avg_ll,std_ll = np.array(likelihoods).mean().round(2),(np.array(likelihoods).std()/np.sqrt(ntask)).round(2)
     return avg_ll,std_ll       
-
 
 
 
@@ -139,8 +111,7 @@ def validate_epochs_with_dict(set_dict_epoch,model,lossfun,test_range=None,train
         
         y_mean,y_std = model(context_x.cuda(),context_y.cuda(),target_x.cuda())        
         #obj = -compute_nll( y_mean,y_std, target_y.cuda())
-        obj = -lossfun( y_mean,y_std, target_y.cuda())
-
+        obj = -lossfun( y_mean,y_std, target_y.cuda(), intrain=False)
                     
         #if trainmodel in base_model_list:
         #    obj = -compute_nll( y_mean,y_std, target_y.cuda())
@@ -173,14 +144,14 @@ parser.add_argument('--nchannels', type=int, default=3)
 parser.add_argument('--cnntype', type=str, default='shallow')
 #parser.add_argument('--cnntype', type=str, default='deep')
 
+#parser.add_argument('--npostsamples', type=int, default=10)
+#parser.add_argument('--npostsamples', type=int, default=3)
 parser.add_argument('--npostsamples', type=int, default=10)
-#parser.add_argument('--ngpsamples', type=int, default=4)
-#parser.add_argument('--ngpsamples', type=int, default=5)
-#parser.add_argument('--ngpsamples', type=int, default=10) #mogp
+
 parser.add_argument('--ngpsamples', type=int, default=10)
 
 parser.add_argument('--dep', action='store_true')
-parser.add_argument('--initl', type=float, default= 0.01)
+parser.add_argument('--initl', type=float, default= 0.1)
 
 #parser.add_argument('--lr', type=float, default= 0.001) #iterations
 parser.add_argument('--lr', type=float, default= 0.001) #iterations
@@ -275,10 +246,21 @@ def get_model(modelname='gp'):
 #modelnamelist = ['gpdep']
 
 #modelnamelist = ['base','baselatent']
-#modelnamelist = ['gpdep','gpind']
-#modelnamelist = ['gpdep']
+#modelnamelist = ['gpind','gpdep']
 #modelnamelist = ['gpind']
+#modelnamelist = ['gpdep']
+#modelnamelist = ['gpind','base','baselatent']
+#modelnamelist = ['gpind']
+#modelnamelist = ['base','baselatent']
+#modelnamelist = ['baselatent']
+#modelnamelist = ['gpind','base','baselatent']
+##modelnamelist = ['gpind']
+#modelnamelist = ['gpdep']
+
+
 modelnamelist = ['gpdep','gpind']
+#modelnamelist = ['baselatent']
+
 
 torch.autograd.set_detect_anomaly(True)
 for ith_model in modelnamelist:
@@ -308,8 +290,7 @@ for ith_model in modelnamelist:
               'cnntype':cnntype,
               'nsamples':num_samples}
     
-        
-    wandb.init( project="uai22-108",
+    wandb.init( project="uai22-9234",
                 config = config,
                 reinit= True)
     # train history
@@ -318,16 +299,16 @@ for ith_model in modelnamelist:
     wandb.define_metric("outtestmnll_mean")    
     wandb.define_metric("outtestmnll_std")    
     
-    #wandb.run.name = model.modelname 
-    #wandb.run.name = '{}_{}_nsamples{}'.format(model.modelname,cnntype,num_samples)     
-    #wandb.run.name = '{}_{}_initl{}_nsamples{}_sampler{}_v3'.format(model.modelname,cnntype,init_lscale,num_samples,model.samplertype) 
-    #wandb.run.name = '{}_{}_initl{}_nsamples{}_sampler{}_v4'.format(model.modelname,cnntype,init_lscale,num_samples,model.samplertype) 
-    wandb.run.name = '{}_{}_initl{}_nsamples{}_sampler{}_v5'.format(model.modelname,cnntype,init_lscale,num_samples,model.samplertype) 
+    #wandb.run.name = '{}_{}_initl{}_nsamples{}_v2'.format(model.modelname,cnntype,init_lscale,num_samples)    
+    #wandb.run.name = '{}_{}_initl{}_nsamples{}_v3'.format(model.modelname,cnntype,init_lscale,num_samples)    
+    wandb.run.name = '{}_{}_initl{}_nsamples{}_v5'.format(model.modelname,cnntype,init_lscale,num_samples)    
+    
+    #wandb.run.name = '{}_{}_initl{}_nsamples{}_sampler{}'.format(model.modelname,cnntype,init_lscale,num_samples,model.samplertype) 
     
     wandb.run.save()
     
-    
-    wandb.watch(model)    
+    # watch model
+    wandb.watch(model)
     for i in range(1,nepochs + 1):   
         
         epoch_start = time.time()
@@ -342,11 +323,9 @@ for ith_model in modelnamelist:
             print('failed load at {}'.format(save_path_set ))            
             pass
 
-        
-        #avg_loss,std_loss = train_epochs_with_dict( train_set,model,opt,lossfun )    
-        avg_loss,std_loss = train_epochs_with_dict( train_set,model,opt,lossfun, trainprogress_ratio = float(i/nepochs) )    
-        
+        avg_loss,std_loss = train_epochs_with_dict( train_set,model,opt,lossfun  )    
         val_loss,val_std_loss  = validate_epochs_with_dict( valid_set,model,lossfun )
+        
         epoch_end = time.time()
         
 
@@ -360,28 +339,16 @@ for ith_model in modelnamelist:
             saved_epoch = i
 
 
-        if i%10 ==0 or i==1:
-        #if i%10 ==0:            
-            print('epochs [{}/{}] | train loss {:.3f}, val loss {:.3f}, \t saved_param: {} saved at epochs {} with best val loss {:.3f} \t {:.3f}(sec)'.format(i,nepochs,avg_loss,val_loss,saved_modelparam_path,saved_epoch,best_loss,epoch_end-epoch_start) )       
-
-            #wandb.log({"tr_ll-intrain": avg_loss,
-            #           "val_ll-intrain": val_loss,
-            #           'current_epoch':i})
-            
-            if ith_model in ['gpdep','gpind']:
-                wandb.log({"tr_ll-intrain": avg_loss,
-                           "val_ll-intrain": val_loss,
-                           'current_epoch':i,
-                           'gp-regloss':model.gpsampler.regloss.cpu().data.numpy().round(2)})
-                
-            else:
-                wandb.log({"tr_ll-intrain": avg_loss,
-                           "val_ll-intrain": val_loss,
-                           'current_epoch':i})
-
-            
-            
+        #if i%1 ==0:
+        if i%20 ==0 or i== 1:            
+            print('epochs [{}/{}] | train loss {:.3f}, val loss {:.3f}, \t saved_param: {} saved at epochs {} with best val loss {:.3f} \t {:.3f}(sec)'.format(i,nepochs,avg_loss,val_loss,saved_modelparam_path,saved_epoch,best_loss,epoch_end-epoch_start) )                       
+            #wandbi tarinining check
+            wandb.log({"tr_ll-intrain": avg_loss,"val_ll-intrain": val_loss,'current_epoch':i})
+        
+        
         torch.cuda.empty_cache()
+        
+        
 
 
         
@@ -403,7 +370,8 @@ for ith_model in modelnamelist:
     log_dict = {"intestmnll_mean":testin_loss_mean,
                 "intestmnll_std":testin_loss_std,
                 "outtestmnll_mean":testout_loss_mean,
-                "outtestmnll_std":testout_loss_std}
+                "outtestmnll_std":testout_loss_std,
+                "saved_epoch":saved_epoch}
                 
     wandb.log(log_dict)
     

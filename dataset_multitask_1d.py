@@ -4,7 +4,7 @@ import torch.nn as nn
 
 
 #tasktype_list = ['sin3_dep','sin3_ind','sin4','mosm','lmc']
-tasktype_list = ['sin3_dep','sin3_ind','sin3','sin4','mosm','lmc']
+tasktype_list = ['sin3_dep','sin3_ind','sin3','sin4','mosm','lmc','mosmvarying']
 
 class motask_generator(object):
     def __init__(self,tasktype,testtype,nchannels,train_range,test_range,dep=True):
@@ -49,6 +49,12 @@ class motask_generator(object):
             #self.f = MOSM(output_dims=self.nchannels, input_dims=1) 
             self.f = MOSM(output_dims=self.nchannels, input_dims=1,dep=self.dep)
             
+        elif tasktype == 'mosmvarying':        
+            #kernel =   
+            #self.f = MOSM(output_dims=self.nchannels, input_dims=1) 
+            self.f = MOSM(output_dims=self.nchannels, input_dims=1,dep=self.dep,varying=True)
+            
+            
         elif tasktype == 'lmc':        
             #kernel =   
             #kernel_list = []
@@ -91,8 +97,22 @@ class motask_generator(object):
                                                                                  test_range = test_range,
                                                                                  nchannels=self.nchannels,
                                                                                  noise_true = noise_true,
-                                                                                 intrain = intrain)
+                                                                                 intrain = intrain,
+                                                                                 varying=False)
    
+        if self.tasktype in ['mosmvarying'] :
+            
+            #mosm varying samples mean parameters from [0.1,2] uniformly 
+            context_x,context_y,target_x,target_y,full_x,full_y = prepare_gptask(self.f,
+                                                                                 testtype=self.testtype,
+                                                                                 nbatch = nbatch,
+                                                                                 batch_npoints=(ncontext,ntarget), 
+                                                                                 train_range = train_range ,
+                                                                                 test_range = test_range,
+                                                                                 nchannels=self.nchannels,
+                                                                                 noise_true = noise_true,
+                                                                                 intrain = intrain,
+                                                                                 varying=True)
 
         elif self.tasktype in ['sin3','sin4','sin3_dep','sin3_ind'] :
 #             context_x,context_y,target_x,target_y,full_x,full_y = prepare_batch(self.tasktype,
@@ -132,9 +152,9 @@ def prepare_sintask(data_name,testtype='inter' ,nbatch = 32,batch_npoints=(64,64
 
     
     for _ in range(nbatch):
-        #rand_phase = 10*(np.random.rand()-0.5)
-        rand_phase = 1.0+ 4.0*(np.random.rand())
-                    
+        #rand_freq = 10*(np.random.rand()-0.5)
+        #rand_freq = 1.0+ 4.0*(np.random.rand())
+        rand_freq = 0.0            
         if testtype == 'inter':
             x_range = train_range
             intervals = test_range
@@ -142,7 +162,7 @@ def prepare_sintask(data_name,testtype='inter' ,nbatch = 32,batch_npoints=(64,64
             ncontext,ntarget = batch_npoints
             
             #i_full_x,i_full_y = gp_sampler(kernel,ntotal,x_range, nchannels,noise_true,eps)
-            i_full_x,i_full_y = sin_sampler(data_name,dep,ntotal,x_range, nchannels,noise_true,eps, rand_phase)            
+            i_full_x,i_full_y = sin_sampler(data_name,dep,ntotal,x_range, nchannels,noise_true,eps, rand_freq)            
             i_context_x,i_context_y,i_target_x,i_target_y = filter_intervals(i_full_x,i_full_y,intervals,ncontext,ntarget,testtype=testtype,intrain=intrain)
             
 
@@ -152,7 +172,7 @@ def prepare_sintask(data_name,testtype='inter' ,nbatch = 32,batch_npoints=(64,64
             ncontext,ntarget = batch_npoints
                 
             #i_full_x,i_full_y = gp_sampler(kernel,ntotal,x_range, nchannels,noise_true,eps)           
-            i_full_x,i_full_y = sin_sampler(data_name,dep,ntotal,x_range, nchannels,noise_true,eps, rand_phase)                        
+            i_full_x,i_full_y = sin_sampler(data_name,dep,ntotal,x_range, nchannels,noise_true,eps, rand_freq)                        
             i_context_x,i_context_y,i_target_x,i_target_y = filter_intervals(i_full_x,i_full_y,intervals,ncontext,ntarget,testtype=testtype,intrain=intrain)
 
         else:
@@ -162,7 +182,7 @@ def prepare_sintask(data_name,testtype='inter' ,nbatch = 32,batch_npoints=(64,64
             #ntotal = 2*(batch_npoints[0]+batch_npoints[1])
             #ntotal = 4*(batch_npoints[0]+batch_npoints[1])
                
-            i_full_x,i_full_y = sin_sampler(data_name,dep,ntotal,x_range, nchannels,noise_true,eps, rand_phase)   
+            i_full_x,i_full_y = sin_sampler(data_name,dep,ntotal,x_range, nchannels,noise_true,eps, rand_freq)   
             
             
             idxf = [np.random.permutation(len(i_full_x[:,i])) for i in range(i_full_x.size(1))]
@@ -195,8 +215,9 @@ def prepare_sintask(data_name,testtype='inter' ,nbatch = 32,batch_npoints=(64,64
 
 
 
-ntotal = 250
-def prepare_gptask(kernel,testtype='inter' ,nbatch = 32,batch_npoints=(64,64), train_range = [-5,5],test_range = [-5,5], nchannels=3,noise_true = True,eps=1e-4, intrain=True):
+#ntotal = 250
+ntotal = 300
+def prepare_gptask(kernel,testtype='inter' ,nbatch = 32,batch_npoints=(64,64), train_range = [-5,5],test_range = [-5,5], nchannels=3,noise_true = True,eps=1e-4, intrain=True,varying=False):
 
     context_x,context_y = [],[]
     target_x,target_y = [],[]
@@ -212,7 +233,7 @@ def prepare_gptask(kernel,testtype='inter' ,nbatch = 32,batch_npoints=(64,64), t
             ncontext,ntarget = batch_npoints
             
             
-            i_full_x,i_full_y = gp_sampler(kernel,ntotal,x_range, nchannels,noise_true,eps)
+            i_full_x,i_full_y = gp_sampler(kernel,ntotal,x_range, nchannels,noise_true,eps,varying)
             i_context_x,i_context_y,i_target_x,i_target_y = filter_intervals(i_full_x,i_full_y,intervals,ncontext,ntarget,testtype=testtype,intrain=intrain)
             
 
@@ -221,7 +242,7 @@ def prepare_gptask(kernel,testtype='inter' ,nbatch = 32,batch_npoints=(64,64), t
             intervals = train_range
             ncontext,ntarget = batch_npoints
                 
-            i_full_x,i_full_y = gp_sampler(kernel,ntotal,x_range, nchannels,noise_true,eps)
+            i_full_x,i_full_y = gp_sampler(kernel,ntotal,x_range, nchannels,noise_true,eps,varying)
             i_context_x,i_context_y,i_target_x,i_target_y = filter_intervals(i_full_x,i_full_y,intervals,ncontext,ntarget,testtype=testtype,intrain=intrain)
 
         
@@ -232,7 +253,7 @@ def prepare_gptask(kernel,testtype='inter' ,nbatch = 32,batch_npoints=(64,64), t
             #ntotal = 4*(batch_npoints[0]+batch_npoints[1])
             #ntotal = 250
             
-            i_full_x,i_full_y = gp_sampler(kernel,ntotal,x_range, nchannels,noise_true,eps)    
+            i_full_x,i_full_y = gp_sampler(kernel,ntotal,x_range, nchannels,noise_true,eps,varying)    
             
             
             # filtering process
@@ -277,12 +298,6 @@ def filter_intervals(full_x,full_y,intervals=[-1,1],ncontext=64,ntarget=64,testt
     nobs,nchannels = full_x.size()
     for i in range(nchannels):
         
-#         if len(np.array(intervals).shape) == 2:     
-#             interval_true = (full_x[:,i]>intervals[0])*(full_x[:,i]<=intervals[1])   #inintervals
-        
-#         if len(np.array(intervals).shape) == nchannels:
-#             interval_true = (full_x[:,i]>intervals[i][0])*(full_x[:,i]<=intervals[i][1])   #inintervals
-
         if len(np.array(intervals).shape) == 1:     
             interval_true = (full_x[:,i]>intervals[0])*(full_x[:,i]<=intervals[1])   #inintervals
         
@@ -367,8 +382,17 @@ def filter_intervals(full_x,full_y,intervals=[-1,1],ncontext=64,ntarget=64,testt
 
 
 
+
+
+################################################################
+# synthetic dataset
+################################################################
+
+
 sigma_eps_std = 0.1
-def gp_sampler(kernel,ntotal,x_range=[-3,3], nchannels=3,noise_true = True ,eps=1e-4):
+def gp_sampler(kernel,ntotal,x_range=[-3,3], nchannels=3,noise_true = True ,eps=1e-4,varying=False):
+    if varying:
+        kernel.reset_param()
     
     xf = torch.linspace(x_range[0]+eps,x_range[1]-eps,ntotal).view(-1,1) 
     xf = xf.repeat(1,nchannels)
@@ -384,50 +408,23 @@ def gp_sampler(kernel,ntotal,x_range=[-3,3], nchannels=3,noise_true = True ,eps=
 
 
 
-################################################################
-# synthetic dataset
-################################################################
 
 
-# def sin_sampler(data_name,ntotal,x_range=[-3,3], nchannels=3,noise_true = True ,eps=1e-4, rand_phase = 0.0):
-#     xf = np.linspace(x_range[0]+eps,x_range[1]-eps,ntotal).reshape(-1,1)
-#     xf = np.repeat(xf,nchannels,axis=1)
-    
-#     if data_name == 'sin3_dep':
-#         f = sin_3channels_dep
-#         full_x,full_y = f(xf[:,0],xf[:,1],xf[:,2],noise_true,phase = rand_phase)
-        
-#     if data_name == 'sin3_ind':
-#         f = sin_3channels_ind
-#         full_x,full_y = f(xf[:,0],xf[:,1],xf[:,2],noise_true,phase = rand_phase)
-    
-#     elif data_name == 'sin4':
-#         f = sin_4channels    
-#         full_x,full_y = f(xf[:,0],xf[:,1],xf[:,2],xf[:,3],noise_true,phase = rand_phase)
-#     else:
-#         pass
-    
-#     full_x = torch.tensor(full_x).float()
-#     full_y = torch.tensor(full_y).float()
-#     return full_x,full_y
-
-
-
-def sin_sampler(data_name,dep,ntotal,x_range=[-3,3], nchannels=3,noise_true = True ,eps=1e-4, rand_phase = 0.0):
+def sin_sampler(data_name,dep,ntotal,x_range=[-3,3], nchannels=3,noise_true = True ,eps=1e-4, rand_freq = 0.0):
     xf = np.linspace(x_range[0]+eps,x_range[1]-eps,ntotal).reshape(-1,1)
     xf = np.repeat(xf,nchannels,axis=1)
     
     if data_name == 'sin3' and dep == True:
         f = sin_3channels_dep
-        full_x,full_y = f(xf[:,0],xf[:,1],xf[:,2],noise_true,phase = rand_phase)
+        full_x,full_y = f(xf[:,0],xf[:,1],xf[:,2],noise_true,freq = rand_freq)
         
     if data_name == 'sin3' and dep == False:
         f = sin_3channels_ind
-        full_x,full_y = f(xf[:,0],xf[:,1],xf[:,2],noise_true,phase = rand_phase)
+        full_x,full_y = f(xf[:,0],xf[:,1],xf[:,2],noise_true,freq = rand_freq)
     
     elif data_name == 'sin4':
         f = sin_4channels    
-        full_x,full_y = f(xf[:,0],xf[:,1],xf[:,2],xf[:,3],noise_true,phase = rand_phase)
+        full_x,full_y = f(xf[:,0],xf[:,1],xf[:,2],xf[:,3],noise_true,freq = rand_freq)
     else:
         pass
     
@@ -436,7 +433,7 @@ def sin_sampler(data_name,dep,ntotal,x_range=[-3,3], nchannels=3,noise_true = Tr
     return full_x,full_y
 
 
-def sin_3channels_ind(t1,t2,t3,noise_true = True,phase=0.0):
+def sin_3channels_ind(t1,t2,t3,noise_true = True,freq=0.0):
     t1.sort(),t2.sort(),t3.sort()    
     phase0 = 2*(np.random.rand()-0.5)
     phase1 = 2*(np.random.rand()-0.5)
@@ -451,13 +448,39 @@ def sin_3channels_ind(t1,t2,t3,noise_true = True,phase=0.0):
 #     f2 = lambda x : 1.5*np.sin(6.1*(x+ phase - 0.5    + phase1))
 #     f3 = lambda x : 2*np.sin(9.1*(x+ phase - 0.75   + phase2 ))   
 
-    f1 = lambda x : 1*np.sin(2.1*(x+ phase          + phase0 ) ) 
-    f2 = lambda x : 1.5*np.sin(4.1*(x+ phase - 0.5    + phase1))
-    f3 = lambda x : 3*np.sin(6.1*(x+ phase - 0.75   + phase2 ))   
+#     f1 = lambda x : 1*np.sin(2.1*(x+ phase          + phase0 ) ) 
+#     f2 = lambda x : 1.5*np.sin(4.1*(x+ phase - 0.5    + phase1))
+#     f3 = lambda x : 3*np.sin(6.1*(x+ phase - 0.75   + phase2 ))   
 
+
+#     #v9
+#     mag0 = 0.5*(np.random.rand()-0.5)
+#     mag1 = 0.5*(np.random.rand()-0.5)
+#     mag2 = 0.5*(np.random.rand()-0.5)
+
+#     freq0 = 1.0+ 4.0*(np.random.rand())    
+#     freq1 = 1.0+ 4.0*(np.random.rand())    
+#     freq2 = 1.0+ 4.0*(np.random.rand())   
+    
+#     f1 = lambda x : 1*(1+mag0)*np.sin( (2.1 + freq0)*(x         + phase0 ) ) 
+#     f2 = lambda x : 1.5*(1+mag1)*np.sin( (4.1 + freq1)*(x - 0.5    + phase1))
+#     f3 = lambda x : 3*(1+mag2)*np.sin( (6.1 + freq2)*(x - 0.75   + phase2 ))   
+
+
+    #v11
+    phase0 = 2*(np.random.rand()-0.5)
+    phase1 = 2*(np.random.rand()-0.5)
+    phase2 = 2*(np.random.rand()-0.5)
+    #freq = 5.0*(np.random.rand())          
+    freq = 0.0
+    mag = 0.5*(np.random.rand()-0.5)
+    #dep
+    f1 = lambda x : 1*(1+mag)*np.sin( (2.1 + freq)*(x            + phase0 ) ) 
+    f2 = lambda x : 2*(1+mag)*np.sin( (4.1 + 2*freq)*(x - 0.5    + phase1))
+    f3 = lambda x : 3*(1+mag)*np.sin( (6.1 + 3*freq)*(x - 1.0   + phase2))
+
+    
     noise_x = lambda x : 0.1*np.random.normal(size=len(x))
-    
-    
     x_out = np.concatenate([t1[:,None],t2[:,None],t3[:,None]],axis=-1)
     if noise_true:
         y_out = np.concatenate([ (f1(t1)+noise_x(t1))[:,None],(f2(t2)+noise_x(t2))[:,None],(f3(t3)+noise_x(t3))[:,None]],axis=-1)        
@@ -467,20 +490,19 @@ def sin_3channels_ind(t1,t2,t3,noise_true = True,phase=0.0):
     return x_out,y_out
 
 
-def sin_3channels_dep(t1,t2,t3,noise_true = True,phase=0.0):
+
+
+
+def sin_3channels_dep(t1,t2,t3,noise_true = True,freq=0.0):
     t1.sort(),t2.sort(),t3.sort()    
 
     
-    phase0 = 2*(np.random.rand()-0.5)
-    phase1 = 2*(np.random.rand()-0.5)
-    phase2 = 2*(np.random.rand()-0.5)
 
 #     #ind
 #     f1 = lambda x : np.sin(3.1*(x+ phase          + phase0 ) ) 
 #     f2 = lambda x : np.sin(6.1*(x+ phase - 0.5    + phase1))
 #     f3 = lambda x : np.sin(9.1*(x+ phase - 0.75   + phase2 ))
 
-    mag = 0.5*(np.random.rand()-0.5)
 #     f1 = lambda x : np.sin( (3.1 + phase)*(x            + phase0 ) ) 
 #     f2 = lambda x : np.sin( (6.1 + 2*phase)*(x - 0.5    + phase1))
 #     f3 = lambda x : np.sin( (9.1 + 3*phase)*(x - 0.75   + phase2))
@@ -490,10 +512,29 @@ def sin_3channels_dep(t1,t2,t3,noise_true = True,phase=0.0):
 #     f2 = lambda x : 1.5*(1+mag)*np.sin( (6.1 + 2*phase)*(x - 0.5    + phase1))
 #     f3 = lambda x : 2*(1+mag)*np.sin( (9.1 + 3*phase)*(x - 0.75   + phase2))
 
+
+#     phase0 = 2*(np.random.rand()-0.5)
+#     phase1 = 2*(np.random.rand()-0.5)
+#     phase2 = 2*(np.random.rand()-0.5)
+#     #freq = 1.0+ 4.0*(np.random.rand())    #v9
+#     freq = 5.0*(np.random.rand())          #v11
+
+#     mag = 0.5*(np.random.rand()-0.5)
+#     #dep
+#     f1 = lambda x : 1*(1+mag)*np.sin( (2.1 + freq)*(x            + phase0 ) ) 
+#     f2 = lambda x : 1.5*(1+mag)*np.sin( (4.1 + 2*freq)*(x - 0.5    + phase1))
+#     f3 = lambda x : 3*(1+mag)*np.sin( (6.1 + 3*freq)*(x - 0.75   + phase2))
+
+    #v11
+    phase0 = 2*(np.random.rand()-0.5)
+    phase1 = 2*(np.random.rand()-0.5)
+    phase2 = 2*(np.random.rand()-0.5)
+    freq = 5.0*(np.random.rand())          
+    mag = 0.5*(np.random.rand()-0.5)
     #dep
-    f1 = lambda x : 1*(1+mag)*np.sin( (2.1 + phase)*(x            + phase0 ) ) 
-    f2 = lambda x : 1.5*(1+mag)*np.sin( (4.1 + 2*phase)*(x - 0.5    + phase1))
-    f3 = lambda x : 3*(1+mag)*np.sin( (6.1 + 3*phase)*(x - 0.75   + phase2))
+    f1 = lambda x : 1*(1+mag)*np.sin( (2.1 + freq)*(x            + phase0 ) ) 
+    f2 = lambda x : 2*(1+mag)*np.sin( (4.1 + 2*freq)*(x - 0.5    + phase1))
+    f3 = lambda x : 3*(1+mag)*np.sin( (6.1 + 3*freq)*(x - 1.0   + phase2))
 
     
     noise_x = lambda x : 0.1*np.random.normal(size=len(x))
@@ -506,40 +547,6 @@ def sin_3channels_dep(t1,t2,t3,noise_true = True,phase=0.0):
         y_out = np.concatenate([ f1(t1)[:,None],f2(t2)[:,None],f3(t3)[:,None] ],axis=-1)
             
     return x_out,y_out
-
-
-
-
-
-
-# def sin_4channels(t1,t2,t3,t4,noise_true = True,phase=0.0):
-#     t1.sort(),t2.sort(),t3.sort(),t4.sort()    
-#     #f1 = lambda x : np.sin(6.*x) + 0.2*np.random.normal(size=len(x))
-#     #f2 = lambda x : np.sin(6.*x + 2.) + 0.2*np.random.normal(size=len(x))
-#     #f3 = lambda x : np.sin(6.*x) - np.sin(4.*x)  + 0.2*np.random.normal(size=len(x))
-#     #f4 = lambda x : np.sin(6.*(x-1)) + 0.2*np.random.normal(size=len(x))
-
-#     f1 = lambda x : np.sin(6.*x + phase) 
-#     f2 = lambda x : np.sin(6.*x + 2. + phase)
-#     f3 = lambda x : np.sin(6.*x + phase) - np.sin(4.*x + phase) 
-#     f4 = lambda x : np.sin(6.*(x-0.5) + phase) 
-#     noise_x = lambda x : 0.1*np.random.normal(size=len(x))
-    
-#     x_out = np.concatenate([t1[:,None],t2[:,None],t3[:,None],t4[:,None]],axis=-1)    
-#     if noise_true:
-#         y_out = np.concatenate([ (f1(t1)+noise_x(t1))[:,None],(f2(t2)+noise_x(t2))[:,None],(f3(t3)+noise_x(t3))[:,None],(f4(t4)+noise_x(t4))[:,None] ],axis=-1)        
-#     else:
-#         y_out = np.concatenate([ f1(t1)[:,None],f2(t2)[:,None],f3(t3)[:,None],f4(t4)[:,None] ],axis=-1)
-        
-#     return x_out,y_out
-
-
-
-
-
-
-
-
 
 
 
@@ -568,38 +575,6 @@ def squared_distance(X1, X2=None):
         X2 = X1
     #return (X1.unsqueeze(1) - X2)**2  # slower than cdist for large X
     return torch.cdist(X2.T.unsqueeze(2), X1.T.unsqueeze(2)).T**2
-
-
-# def compute_multioutput_K(k_sub,x1,x2=None,eps=5e-4):
-#     if x2 is None:
-#         x2 = x1
-    
-#     output_dims = x1.size(1)
-#     K = []
-#     k_dict = {}
-#     for i in range(output_dims):
-#         k_i = []
-#         for j in range(output_dims):
-#             if i==j:
-#                 #ksub_ij = mosm.Ksub(i,i,x1[:,i])           
-#                 ksub_ij = k_sub(i,i,x1[:,i],x2[:,i])            
-#                 if ksub_ij.is_cuda:
-#                     ksub_ij += eps*torch.eye(x1[:,i].size(0)).cuda()
-#                 else:
-#                     ksub_ij += eps*torch.eye(x1[:,i].size(0))
-#             elif i<j:
-#                 #ksub_ij = mosm.Ksub(i,j,x1[:,i],x1[:,j])
-#                 ksub_ij = k_sub(i,j,x1[:,i],x2[:,j])                
-#                 k_dict[(i,j)] = ksub_ij
-#             else:
-#                 ksub_ij = k_dict[(j,i)].T
-#             k_i.append(ksub_ij)
-#         K.append(torch.cat(k_i,dim=-1))
-    
-#     del k_dict
-#     K = torch.cat(K,dim=0)
-#     return K
-
 
 
 
@@ -666,9 +641,11 @@ class Matern(nn.Module):
 
         
         self.nu = nu
-        self.l = nn.Parameter(torch.tensor([l]).float())
-        self.sigma = nn.Parameter(torch.tensor([sigma]).float())
-
+        #self.l = nn.Parameter(torch.tensor([l]).float())
+        #self.sigma = nn.Parameter(torch.tensor([sigma]).float())
+        self.l = torch.tensor([l]).float()
+        self.sigma = torch.tensor([sigma]).float()
+ 
     def K(self, X1, X2=None):
         # X has shape (data_points,input_dims)
         #X1,X2 = self._check_input(X1,X2)
@@ -710,36 +687,35 @@ class LMC(nn.Module):
             w3 = torch.tensor([[0.0],[0.0],[1.0]])[None,:,:]
             weight_ind = torch.cat([w1,w2,w3],dim=0)            
             
-            
-            
+                    
             w1 = torch.tensor([[0.9],[0.9],[0.0]])[None,:,:]
             w2 = torch.tensor([[0.0],[-0.9],[-0.9]])[None,:,:]
             w3 = torch.tensor([[-0.9],[0.0],[0.9]])[None,:,:]
             weight_dep = torch.cat([w1,w2,w3],dim=0)            
-            
-            
-            #self.weight = nn.Parameter(weight_ind)
-            if self.dep:
-                self.weight = nn.Parameter(weight_dep)
-            else:
-                self.weight = nn.Parameter(weight_ind)
-            
+                        
             
             #self.weight = nn.Parameter(weight_ind)
             if self.dep:
                 print('weight dependecny true')
-                self.weight = nn.Parameter(weight_dep)
+                #self.weight = nn.Parameter(weight_dep)
+                self.weight = weight_dep               
             else:
                 print('weight dependecny false')                
-                self.weight = nn.Parameter(weight_ind)
-        
-        
-        
-        
+                #self.weight = nn.Parameter(weight_ind)
+                self.weight = weight_ind
+                
         #kernels = self._check_kernels(kernels, Q)        
         self.kernels = kernel_list
         self.transform = nn.Softplus()
 
+        
+        
+    def reset_param(self):
+        #self.mean += 0.5*torch.rand_like(self.mean)
+        #print('varying mean {}'.format(self.mean))        
+        return 
+        
+        
     def __getitem__(self, key):
         return self.kernels[key]
 
@@ -798,14 +774,14 @@ class IndependentMultiOutputKernel(nn.Module):
 
         
 class MOSM(nn.Module):    
-    def __init__(self, output_dims, input_dims, active_dims=None, name="mosm",dep=True):
+    def __init__(self, output_dims, input_dims, active_dims=None, name="mosm",dep=True , varying=False):
         #super(MOSM, self).__init__(output_dims, input_dims, active_dims, name)
         super(MOSM, self).__init__()
         
         self.dep = dep
         self.input_dims = input_dims
         self.output_dims = output_dims
-        
+        self.varying = varying
         # TODO: incorporate mixtures?
         # TODO: allow different input_dims per channel
 #         magnitude = 0.1+0.9*torch.rand(output_dims)
@@ -814,38 +790,64 @@ class MOSM(nn.Module):
 #         delay = 0*torch.rand(output_dims, input_dims)
 #         phase = 0*torch.rand(output_dims)
                 
+    
+
+    
         #magnitude_ = [0.5,0.5,0.5]        
         magnitude_ = [0.5,0.5,0.5]                
         magnitude = torch.tensor(magnitude_)
+        mean_ = np.array([[0.1],[3.],[5.]])       
+        mean = torch.tensor(mean_).float()
         
-        #mean_ = [[0.1],[1.],[5]]
-        #mean_ = [[0.1],[1.5],[3]]
-        mean_ = [[0.1],[1.],[2.0]]        
-        mean = torch.tensor(mean_)
-        
-        variance_ = [[0.1],[0.1],[0.1]]
+        #variance_ = [[0.1],[0.1],[0.1]]
+        variance_ = [[0.1],[0.1],[0.1]] #v8
         variance = torch.tensor(variance_) 
         
         delay = .5*torch.rand(output_dims, input_dims)
         phase = .0*torch.rand(output_dims)
     
     
-            
-        self.magnitude = nn.Parameter(magnitude)
-        self.mean = nn.Parameter(mean)
-        self.variance = nn.Parameter(variance)
+
         
-        
+#         self.magnitude = nn.Parameter(magnitude)
+#         self.mean = nn.Parameter(mean)
+#         self.variance = nn.Parameter(variance)
+#         if 1 < output_dims:
+#             #self.delay = Parameter(delay)
+#             #self.phase = Parameter(phase)
+#             self.delay = nn.Parameter(delay)
+#             self.phase = nn.Parameter(phase)
+
+        self.magnitude = magnitude
+        self.mean = mean
+        self.variance = variance
         if 1 < output_dims:
-            #self.delay = Parameter(delay)
-            #self.phase = Parameter(phase)
-            self.delay = nn.Parameter(delay)
-            self.phase = nn.Parameter(phase)
-            
+            self.delay = delay
+            self.phase = phase
             
         self.twopi = np.power(2.0*np.pi,float(self.input_dims)/2.0)
         self.transform = nn.Softplus()
 
+        
+        
+    def reset_param(self):
+        #self.mean = 0.1+1.9*torch.rand_like(self.mean) v7
+        #self.mean = 0.5+0.5*torch.rand_like(self.mean)  #v8~
+        
+        #mean_ = np.array([[0.1],[3.],[5.]])
+        #mean_pertube = mean_ +  0.5*torch.rand_like(mean_) 
+        #self.mean = torch.tensor(mean_pertube)               
+        
+        mean_ = np.array([[0.1],[3.],[5.]])
+        mean_pertube = mean_ +  0.5*np.random.randn(*mean_.shape)  #v11
+        mean_pertube = np.abs(mean_pertube)
+        self.mean = torch.tensor(mean_pertube).float()               
+        return 
+        
+        
+        
+        
+        
         
     def show_params(self):
         print('self.magnitude {}'.format(self.magnitude))                
@@ -876,7 +878,6 @@ class MOSM(nn.Module):
         variance = self.transform(self.variance)        
         delay = self.transform(self.delay)
         phase = self.transform(self.phase)
-        
 
 
         tau = distance(X1,X2)  # NxMxD

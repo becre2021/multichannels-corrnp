@@ -170,22 +170,46 @@ class GP_Baseline(nn.Module):
     
     
     
-    def compute_logprob_task(self,set_dict_epoch):    
+#     def compute_logprob_task(self,set_dict_epoch):    
+#         full_logprob = []
+#         diag_logprob = []    
+#         ntask = set_dict_epoch['context_x'].size(0)    
+#         for ith in range(ntask):        
+#             context_x,context_y = set_dict_epoch['context_x'][ith],set_dict_epoch['context_y'][ith]
+#             target_x,target_y = set_dict_epoch['target_x'][ith],set_dict_epoch['target_y'][ith]        
+#             full_logprob_nb,diag_logprob_nb = self.compute_logprob_batch(context_x,context_y,target_x,target_y)
+
+#             full_logprob.append(full_logprob_nb.cpu().data.numpy())    
+#             diag_logprob.append(diag_logprob_nb.cpu().data.numpy())    
+
+#         avg_f_ll,std_f_ll = np.array(full_logprob).mean().round(2),(np.array(full_logprob).std()/np.sqrt(ntask)).round(2)
+#         avg_d_ll,std_d_ll = np.array(diag_logprob).mean().round(2),(np.array(diag_logprob).std()/np.sqrt(ntask)).round(2)    
+#         return (avg_f_ll,std_f_ll),(avg_d_ll,std_d_ll)
+    
+    
+    def compute_logprob_task(self,dataset_list,normalization=False):    
         full_logprob = []
         diag_logprob = []    
-        ntask = set_dict_epoch['context_x'].size(0)    
-        for ith in range(ntask):        
-            context_x,context_y = set_dict_epoch['context_x'][ith],set_dict_epoch['context_y'][ith]
-            target_x,target_y = set_dict_epoch['target_x'][ith],set_dict_epoch['target_y'][ith]        
-            full_logprob_nb,diag_logprob_nb = self.compute_logprob_batch(context_x,context_y,target_x,target_y)
-
+        ntask = len(dataset_list)   
+        #for ith_data in range(dataset_list):        
+        for ith_data in dataset_list:                    
+            #context_x,context_y = set_dict_epoch['context_x'][ith],set_dict_epoch['context_y'][ith]
+            #target_x,target_y = set_dict_epoch['target_x'][ith],set_dict_epoch['target_y'][ith]        
+            xc,yc,xt,yt,xf,yf = ith_data
+                
+            #full_logprob_nb,diag_logprob_nb = self.compute_logprob_batch(context_x,context_y,target_x,target_y)
+            full_logprob_nb,diag_logprob_nb = self.compute_logprob_batch(xc,yc,xt,yt)                        
+            if normalization:
+                full_logprob_nb /= yt.size(-1)*yt.size(-2)
+                diag_logprob_nb /= yt.size(-1)*yt.size(-2)
+                
             full_logprob.append(full_logprob_nb.cpu().data.numpy())    
             diag_logprob.append(diag_logprob_nb.cpu().data.numpy())    
 
         avg_f_ll,std_f_ll = np.array(full_logprob).mean().round(2),(np.array(full_logprob).std()/np.sqrt(ntask)).round(2)
         avg_d_ll,std_d_ll = np.array(diag_logprob).mean().round(2),(np.array(diag_logprob).std()/np.sqrt(ntask)).round(2)    
         return (avg_f_ll,std_f_ll),(avg_d_ll,std_d_ll)
-    
+
     
     
     

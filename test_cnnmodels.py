@@ -18,12 +18,22 @@ def get_cnnmodels(modeltype='shallow'):
         return cnn_deep()
 
     
-points_per_unit=64    
+    
+    
 #points_per_unit=32    #for gp models
+points_per_unit=64   #synthetic
+#points_per_unit=24*12    #synthetic
 
 class cnn_shallow(nn.Module):
     def __init__(self):
         super(cnn_shallow,self).__init__()
+        
+        self.out_dims = 8         
+        #self.out_dims = 2*8                 
+        self.multiplier = 2**3
+        self.points_per_unit=points_per_unit
+
+        
         cnn = nn.Sequential(
             nn.Conv1d(8, 16, 5, 1, 2),            
             nn.ReLU(),            
@@ -37,14 +47,23 @@ class cnn_shallow(nn.Module):
         )                
         self.cnn = init_sequential_weights(cnn)    
         
-        self.out_dims = 8         
-        self.multiplier = 2**3
-        self.points_per_unit=points_per_unit
-        
-    
+            
     
     def forward(self,x):
-        return self.cnn(x)
+        #print('x.shape,self.cnn(x).shape,pad_concat(x, self.cnn(x)).shape')        
+        #print(x.shape,self.cnn(x).shape,pad_concat(x, self.cnn(x)).shape)
+        
+        return self.cnn(x) #out_dims = 8
+        #return pad_concat(x, self.cnn(x)) #outs_dims = 2*8
+    
+    
+    
+    
+    
+    
+    
+    
+    
     
     
     
