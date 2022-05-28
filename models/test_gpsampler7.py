@@ -11,8 +11,7 @@ import math
 import itertools as it
 
 
-#from convcnp.utils import to_multiple
-from models.convcnp.utils import to_multiple
+from .utils import to_multiple
 from attrdict import AttrDict
 
 

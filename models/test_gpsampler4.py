@@ -9,11 +9,9 @@ import torch.nn.functional as F
 import numpy as np
 import math
 import itertools as it
-
-
-#from convcnp.utils import to_multiple
-from models.convcnp.utils import to_multiple
 from attrdict import AttrDict
+
+from .utils import to_multiple
 
 
 
