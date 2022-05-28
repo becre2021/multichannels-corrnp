@@ -16,7 +16,6 @@ from test_kernels import pi2repuse
 
 
 from attrdict import AttrDict
-from cholesky_save import psd_safe_cholesky
 
 
 __all__= ['Spikeslab_GPsampler']
@@ -35,35 +34,6 @@ class transinvariant_mlp(nn.Module):
         self.hdims = hdims
         self.num_channels = num_channels
         self.num_mixtures = num_mixtures
-       
-        #length_scale = eps + 10*torch.rand(in_dims,num_channels,num_features)        
-#        length_scale = eps + 1*torch.rand(in_dims,num_channels,num_features)
-#        self.length_scale=   nn.Parameter( torch.log( length_scale ) , requires_grad=False )                  
-        
-#         self.fc1 = nn.Linear (num_features+1,hdims)
-#         self.fc2 = nn.Linear(hdims,hdims)
-#         self.fc3 = nn.Linear(hdims*num_channels,num_mixtures*num_channels)    
-#         nn.init.xavier_uniform_(self.fc1.weight)
-#         nn.init.xavier_uniform_(self.fc2.weight)
-#         nn.init.xavier_uniform_(self.fc3.weight)    
-
-
-
-#         self.fc1 = nn.Linear(num_mixtures+1,hdims)    
-#         self.fc2 = nn.Linear(hdims,hdims)
-#         self.fc3 = nn.Linear(hdims*num_channels,num_mixtures*num_channels)    
-#         self.fc4 = nn.Linear(num_mixtures*num_channels,num_mixtures*num_channels)    
-#         nn.init.xavier_uniform_(self.fc1.weight)
-#         nn.init.xavier_uniform_(self.fc2.weight)
-#         nn.init.xavier_uniform_(self.fc3.weight)    
-#         nn.init.xavier_uniform_(self.fc4.weight)    
-
-
-#         self.fc1 = nn.Linear(num_mixtures+1,hdims)    
-#         self.fc2 = nn.Linear(hdims,hdims)
-#         self.fc3 = nn.Linear(hdims*num_channels,num_mixtures*num_channels)    
-#         self.fc4 = nn.Linear(num_mixtures*num_channels,num_mixtures*num_channels)    
-#         self.fc5 = nn.Linear(num_mixtures*num_channels,num_mixtures*num_channels)    
 
         self.fc1 = nn.Linear(num_mixtures+1,hdims)    
         #self.fc2 = nn.Linear(hdims,hdims)
@@ -198,98 +168,6 @@ def sample_gumbel_softmax(logits, nb=1, nsamples=1, temperature=1.0,training=Tru
 pi2 = 2*math.pi
 eps=1e-6
 pi2repuse=True
-# def eval_smkernel_batch(param_list,xc,xt=None, likerr_bound=[.1,1.0], zitter=1e-4):
-# #def eval_smkernel(param_list,xc,xt=None, likerr_bound=[.1,1.0], zitter=1e-3,zitter_flag = False):
-
-#     """
-#     inputs:
-#         #xc : (nb,ncontext,ndim,nchannel)
-#         xc : (nb,ncontext,ndim)
-        
-#     outputs:
-#         Kxz : (nb,ncontext,ncontext,nchannel)      # assume y-value is 1-d      
-#     """
-    
-#     assert len(xc.shape) == 4                            
-#     if xt is None:
-#         xt = xc
-#         nb,ndata,ndim,nchannel = xc.size()         
-#         ndata2=ndata
-#     else:
-#         nb,ndata,ndim,nchannel = xc.size()                            
-#         _,ndata2,_,_ = xt.size()                            
-
-#     xc_ = xc.unsqueeze(dim=1)
-#     xt_ = xt.unsqueeze(dim=1)
-              
-#     assert len(param_list) == 4    
-    
-#     #(nmixutre,ndim),(nmixutre,ndim),(nmixutre),(1)
-#     mu,inv_std,logits,likerr = param_list         
-#     #mu_=mu[None,:,None,:]
-#     #inv_std_=inv_std[None,:,None,:]
-#     #logits_ = logits[None,:,None,None]
-#     mu_=mu[None,:,None,:,None]
-#     inv_std_=inv_std[None,:,None,:,None] 
-    
-#     #(nb,nmixture,ndata,ndim,nchannel)
-#     xc_ = xc.unsqueeze(dim=1)
-#     xt_ = xt.unsqueeze(dim=1)
-#     #xc_.shape,xt_.shape
-
-#     exp_xc_ = xc_*inv_std_
-#     exp_xt_ = xt_*inv_std_
-#     cos_xc_ = xc_*mu_
-#     cos_xt_ = xt_*mu_
-
-#     exp_term_xc2_ = torch.pow(exp_xc_,2).sum(dim=-2)[:,:,:,None,:] 
-#     exp_term_xt2_ = torch.pow(exp_xt_,2).sum(dim=-2)[:,:,None,:,:]
-#     cross_term_ = torch.einsum('bmadk,bmcdk->bmack',exp_xc_,exp_xt_)    
-#     exp_term = exp_term_xc2_ + exp_term_xt2_ -2*cross_term_    
-#     cos_term = cos_xc_.sum(dim=-2)[:,:,:,None,:] - cos_xt_.sum(dim=-2)[:,:,None,:,:]
-    
-#     if pi2repuse:    
-#         weighted_outs = torch.exp(-0.5*(pi2**2)*exp_term )*torch.cos(pi2*cos_term)
-#     else:
-#         weighted_outs = torch.exp(-0.5*exp_term )*torch.cos(cos_term)
-        
-        
-#     # weighted_outs :  #(nb,mixture,ncontext,ntarget,nchannel) 
-            
-
-#     if logits is None:
-#         weighted_outs =  weighted_outs.permute(0,2,3,4,1)        
-#         if ndata == ndata2: 
-#             #likerr_ = likerr[None,None,None,:]
-#             #likerr_ = torch.clamp(likerr_,min=likerr_bound[0],max=likerr_bound[1])                
-#             noise_eye = (zitter)*(torch.eye(ndata)[None,:,:,None,None]).to(xc.device)
-#             weighted_outs = weighted_outs + noise_eye     
-#             return weighted_outs #(nb,ncontext,ntarget,nchannel,mixture)  
-#         else:
-#             return weighted_outs #(nb,ncontext,ntarget,nchannel,mixture)        
-            
-#     else:        
-#         if logits.dim() == 2:
-#             #(nchannle,nmixture)         
-#             logits_ =logits.permute(1,0)[None,:,None,None,:]
-#             weighted_outs = (weighted_outs*logits_).sum(dim=1)                    
-
-#         if logits.dim() == 3:
-#             #(nb,nchannle,nmixture) --> (nb,nmixture,1,1,nchannle)                     
-#             logits_ =logits.permute(0,2,1)[:,:,None,None,:]
-#             weighted_outs = (weighted_outs*logits_).sum(dim=1)                
-            
-#         if ndata == ndata2: 
-#             likerr_ = likerr[None,None,None,:]
-#             likerr_ = torch.clamp(likerr_,min=likerr_bound[0],max=likerr_bound[1])                
-#             noise_eye = (zitter+likerr_**2)*(torch.eye(ndata)[None,:,:,None]).to(xc.device)
-#             weighted_outs = weighted_outs + noise_eye     
-#             return weighted_outs
-
-#         else:
-#             return weighted_outs
-    
-
     
 def eval_smkernel_batch(param_list,xc,xt=None, likerr_bound=[.1,1.0], zitter=1e-4):
 #def eval_smkernel(param_list,xc,xt=None, likerr_bound=[.1,1.0], zitter=1e-3,zitter_flag = False):
@@ -432,12 +310,13 @@ class Spikeslab_GPsampler(nn.Module):
                                                 num_channels=num_channels,
                                                 num_mixtures=num_mixtures) 
 
-#             # not good compared to num_mixture-3
-#             num_mixtures=2                        
-#             self.weight_net = transinvariant_mlp(in_dims=in_dims,
-#                                                 hdims=hdims,
-#                                                 num_channels=num_channels,
-#                                                 num_mixtures=num_mixtures) 
+
+        if num_channels==2:
+            num_mixtures=4                        
+            self.weight_net = transinvariant_mlp(in_dims=in_dims,
+                                                hdims=hdims,
+                                                num_channels=num_channels,
+                                                num_mixtures=num_mixtures) 
 
             
         if num_channels == 3:
@@ -470,11 +349,7 @@ class Spikeslab_GPsampler(nn.Module):
         self.num_mixtures = num_mixtures
         self.set_initparams(scales=scales,loglik_err = loglik_err,eps =eps)
         
-        
-        #self.temperature= 1e-1
-        #self.temperature= 1e-2
-            
-            
+          
             
         
         self.w=None
@@ -522,7 +397,6 @@ class Spikeslab_GPsampler(nn.Module):
         #loglogits = eps  +  1.*torch.rand(self.num_channels,self.num_mixtures)
         loglogits = eps  +  1.*torch.ones(self.num_channels,self.num_mixtures) + .1*torch.rand(self.num_channels,self.num_mixtures)
 
-        #v12 
         if self.num_channels == 1:                    
             maxfreq = 5
             centeredfreq=torch.linspace(0,maxfreq,self.num_mixtures)
@@ -541,7 +415,27 @@ class Spikeslab_GPsampler(nn.Module):
             #self.bound_std = [2.,10.]   #--> invstd = [0.1,1]
             #self.bound_std = np.array([2*(self.num_mixtures/maxfreq),10])
             self.bound_std = np.array([1,5])
-        
+
+            
+        if self.num_channels == 2:                    
+            maxfreq = 5
+            centeredfreq=torch.linspace(0,maxfreq,self.num_mixtures)
+            logmu = eps + centeredfreq.reshape(-1,1).repeat(1,self.in_dims) +  .1*torch.rand(self.num_mixtures,self.in_dims)   
+            logmu[0] = eps*torch.ones(self.in_dims)             
+            logmu = logmu.sort(dim=0)[0]        
+            
+            logstd = eps + scales*torch.ones(self.num_mixtures,self.in_dims)        
+            
+            
+            #0.25*(maxfreq/self.num_mixtures) >= invstd           
+            #4*(self.num_mixtures/maxfreq) <= std
+            
+            self.bound_mu = np.array([eps,maxfreq])
+            #self.bound_std = [1.,10.]   #--> invstd = [0.1,1]
+            #self.bound_std = [2.,10.]   #--> invstd = [0.1,1]
+            #self.bound_std = np.array([2*(self.num_mixtures/maxfreq),10])
+            self.bound_std = np.array([1,5])
+            
 
         #-----------------------------
         #settings for reported results
@@ -606,15 +500,6 @@ class Spikeslab_GPsampler(nn.Module):
         
     
 
-  
-    #def sample_w_b(self,xc,yc,nsamples,eps=1e-6,tempering0=10.):    
-    #def sample_w_b(self,xc,yc,nsamples,eps=1e-6,tempering0=1e2):    
-    #def sample_w_b(self,xc,yc,nsamples,eps=1e-6,tempering0=1e1):    
-    #def sample_w_b(self,xc,yc,nsamples,eps=1e-6,tempering0=1e3):    
-    #def sample_w_b(self,xc,yc,nsamples,eps=1e-6,tempering0=1e1):    
-    #def sample_w_b(self,xc,yc,nsamples,eps=1e-6,tempering0=1e-1):    
-    #def sample_w_b(self,xc,yc,nsamples,eps=1e-6,tempering0=1e-3):    
-    #def sample_w_b(self,xc,yc,nsamples,eps=1e-6,tempering0=1e-2):    
     def sample_w_b(self,xc,yc,nsamples,eps=1e-6):    
        
         """
@@ -645,11 +530,6 @@ class Spikeslab_GPsampler(nn.Module):
 
     
     
-    #def sample_logits(self,xc,yc,nsamples,eps=1e-6,tempering0=1e-1):
-    #def sample_logits(self,xc,yc,nsamples,eps=1e-6,tempering0=1e1):
-    
-    
-    #def sample_logits(self,xc,yc,nsamples,eps=1e-6,tempering0=1):
     def sample_logits(self,xc,yc,nsamples,eps=1e-6,tempering0=1e1):        
         nb = xc.size(0)
 
@@ -678,9 +558,6 @@ class Spikeslab_GPsampler(nn.Module):
             
 
         else:
-            #logits = F.softmax(self.loglogits / tempering,dim=-1)     #(num_channels,num_mixtures)             
-            #logits_samples = sample_gumbel_softmax(logits, nb=nb, nsamples=nsamples, temperature= self.temperature)
-
             logits = self.loglogits / self.tempering0      #(num_channels,num_mixtures)             
             logits_samples = sample_gumbel_softmax(logits,
                                                    nb=nb,

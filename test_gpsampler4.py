@@ -16,7 +16,6 @@ from test_kernels import pi2repuse
 
 
 from attrdict import AttrDict
-from cholesky_save import psd_safe_cholesky
 
 
 #__all__= ['Spikeslab_GPsampler']
@@ -171,27 +170,19 @@ class Independent_GPsampler(nn.Module):
 
         #---------------------------------
         # single-channl tasks in section 5-1    
-        #---------------------------------
-        
+        #---------------------------------        
         if self.num_channels == 1:          
-#             # -------------------------
-#             # runv 1 - regraded as sm prior
-#             # -------------------------            
-#             logmu = eps  +  1*torch.rand(self.num_channels,self.in_dims)               
-#             logmu[0] = eps*torch.ones(self.in_dims) 
-#             logstd = eps + scales*torch.ones(self.num_channels,self.in_dims)        
-#             loglik = eps + loglik_err*torch.ones(self.num_channels)
-
-#             # -------------------------
-#             # runv 2 - regraded as rbf prior
-#             # -------------------------            
-#             logmu = eps  +  eps*torch.rand(self.num_channels,self.in_dims)               
-#             logmu[0] = eps*torch.ones(self.in_dims) 
-#             logstd = eps + scales*torch.ones(self.num_channels,self.in_dims)        
-#             loglik = eps + loglik_err*torch.ones(self.num_channels)
 
             # -------------------------
-            # runv 3 - regraded as sm prior - re
+            # regraded as rbf prior
+            # -------------------------            
+            logmu = eps  +  eps*torch.rand(self.num_channels,self.in_dims)               
+            logmu[0] = eps*torch.ones(self.in_dims) 
+            logstd = eps + scales*torch.ones(self.num_channels,self.in_dims)        
+            loglik = eps + loglik_err*torch.ones(self.num_channels)
+
+            # -------------------------
+            # runv 3 - regraded as sm prior
             # -------------------------                        
             maxfreq = 5.
             logmu = eps  +  maxfreq*torch.rand(self.num_channels,self.in_dims)               
@@ -199,10 +190,8 @@ class Independent_GPsampler(nn.Module):
             logstd = eps + scales*torch.ones(self.num_channels,self.in_dims)        
             loglik = eps + loglik_err*torch.ones(self.num_channels)
             
-            #print('logmu')
-            #print(logmu)
-            #init as expected
-        
+
+            
         #---------------------------------
         # multi-channl tasks in section 5-2
         #---------------------------------        
@@ -211,11 +200,11 @@ class Independent_GPsampler(nn.Module):
             #----------------------------
             # sin3 task 
             #----------------------------    
-#             # regraded as sm prior           
-#             logmu = eps  +  1*torch.rand(self.num_channels,self.in_dims)               
-#             logmu[0] = eps*torch.ones(self.in_dims) 
-#             logstd = eps + scales*torch.ones(self.num_channels,self.in_dims)        
-#             loglik = eps + loglik_err*torch.ones(self.num_channels)
+            # regraded as sm prior           
+            logmu = eps  +  1*torch.rand(self.num_channels,self.in_dims)               
+            logmu[0] = eps*torch.ones(self.in_dims) 
+            logstd = eps + scales*torch.ones(self.num_channels,self.in_dims)        
+            loglik = eps + loglik_err*torch.ones(self.num_channels)
 
             # regraded as rbf prior            
             logmu = eps  +  eps*torch.rand(self.num_channels,self.in_dims)               
@@ -224,22 +213,16 @@ class Independent_GPsampler(nn.Module):
             loglik = eps + loglik_err*torch.ones(self.num_channels)
 
  
+        if self.num_channels == 2:          
+            # -------------------------
+            #  sm prior
+            # -------------------------                        
+            maxfreq = 5.
+            logmu = eps  +  maxfreq*torch.rand(self.num_channels,self.in_dims)               
+            #logmu[0] = eps*torch.ones(self.in_dims) 
+            logstd = eps + scales*torch.ones(self.num_channels,self.in_dims)        
+            loglik = eps + loglik_err*torch.ones(self.num_channels)
 
-#             #----------------------------
-#             # mosm task 
-#             #----------------------------    
-#             # regraded as sm kernel prior           
-#             maxfreq = 5.
-#             logmu = eps  +  maxfreq*torch.rand(self.num_channels,self.in_dims)               
-#             logmu[0] = eps*torch.ones(self.in_dims) 
-#             logstd = eps + scales*torch.ones(self.num_channels,self.in_dims)        
-#             loglik = eps + loglik_err*torch.ones(self.num_channels)
-
-#             # regraded as rbf kernel prior
-#             logmu = eps  +  1*torch.rand(self.num_channels,self.in_dims)               
-#             logmu[0] = eps*torch.ones(self.in_dims) 
-#             logstd = eps + scales*torch.ones(self.num_channels,self.in_dims)        
-#             loglik = eps + loglik_err*torch.ones(self.num_channels)
 
 
         
@@ -362,10 +345,6 @@ class Independent_GPsampler(nn.Module):
         prior_samples = normalizer*sum_costerm        
         return prior_samples,xa_samples                         
         
-        #logits_samples_ = logits_samples.permute(0,1,3,2)[:,:,None,:,:]
-        #w_prior_samples = (prior_samples*logits_samples_).sum(dim=-2)                
-        #return w_prior_samples,xa_samples                 
-
 
  
 
@@ -490,543 +469,3 @@ class Independent_GPsampler(nn.Module):
 
     
     
-    
-
-    
-#     #def sample_prior_independent(self,xc,numsamples=10):    
-#     def sample_prior_independent_loop(self,xc,yc,numsamples=10):    
-        
-#         """
-#         inputs:
-#             xc : (nb,ncontext,ndim,nchannel)
-#         outputs:
-#             Psi_pred : (nb,ncontext,nchannel)      # assume y-value is 1-d      
-#         """        
-#         nb,ndata,ndim,nchannel = xc.shape
-#         w,b,normalizer,random_w = self.w, self.b, self.normalizer,self.random_w
-#         w = w.permute(0,1,3,2)
-#         b = b.permute(0,1,3,2)
-#         logits_samples = self.logits_samples
-     
-#         normalizer = np.sqrt(2/self.num_fourierbasis)
-#         #normalizer = 1.
-#         xc_list = []
-#         yc_list = []
-        
-#         prior_samples_list = []
-#         for jch in range(nchannel):
-#             j_xc = xc[...,jch]
-#             j_xdotw = torch.einsum('nbd,nsdk->nsbk',j_xc,w)
-
-#             if pi2repuse:            
-#                 cos_interms = pi2*j_xdotw + pi2*b                   
-#             else:
-#                 cos_interms = j_xdotw + pi2*b                 
-
-#             Psi = torch.cos(cos_interms)   
-#             #print('Psi.shape,random_w.shape')
-#             #print(Psi.shape,random_w.shape)
-#             #nb,_,ndata,nmixutre = Psi.shape
-
-#             sum_costerm = Psi*random_w[:,:,None,:,jch]            
-#             nb,_,ndata,nmixture = sum_costerm.shape
-#             sum_costerm = sum_costerm.reshape(nb,numsamples,-1,ndata,nmixture).sum(dim=2)            
-#             prior_samples = normalizer*sum_costerm        
-#             w_prior_samples = (prior_samples*logits_samples[:,:,jch,None,:]).sum(dim=-1)
-            
-#             prior_samples_list.append(w_prior_samples)
-#             xc_list.append(xc[...,jch])
-#             yc_list.append(yc[...,jch])
-            
-# #        return xc,w,b,random_w       
-#         return prior_samples_list,xc_list,yc_list
-
-
-
-
-
-#     def prepare_updateterms_loop(self,xc,yc,xt,numsamples=1):
-#         #prior_shared, xa_shared = self.sample_prior_shared(xc,xt,numsamples=numsamples,reorder=False)
-#         prior_ind_list,xc_list,yc_list = self.sample_prior_independent(xc,yc,numsamples=numsamples)
-
-
-#         mu,inv_std = self.logmu.exp(),1/(self.logstd.exp()+eps)
-#         #logits = self.logits
-#         logits = F.softmax(self.loglogits,dim=-1)                
-#         likerr = self.loglik.exp()
-#         likerr_bound = self.loglik_bound
-
-#         #if yt is None:
-#         #xa_shared_ = xa_shared[...,0]    
-#         xt_list = [xt[...,j] for j in range(xt.size(-1))]
-
-#         update_term_list = []
-#         density_term_list = []
-#         for j,(j_xc,j_yc,j_xt,j_prior_ind) in enumerate(zip(xc_list,yc_list,xt_list,prior_ind_list)):
-#             param_list_j = (mu,inv_std,logits[j],likerr[j])    
-#             #K_cc = eval_smkernel(param_list_j, j_xc, likerr_bound=likerr_bound)
-#             #K_tc = eval_smkernel(param_list_j, j_xt , j_xc, likerr_bound=likerr_bound)
-            
-#             K_cc,exp_term_cc = eval_smkernel(param_list_j, j_xc , likerr_bound=likerr_bound)
-#             K_tc,exp_term_tc = eval_smkernel(param_list_j, j_xt , j_xc, likerr_bound=likerr_bound)
-#             #print('K_tc.shape {}'.format(K_tc.shape))
-            
-            
-#             L = torch.linalg.cholesky(K_cc)      
-#             j_prior_ind = j_prior_ind + likerr[j]*torch.randn_like(j_prior_ind).to(j_xc.device)
-#             delta_j_yc = (j_yc[:,None,:] - j_prior_ind).permute(0,2,1)
-
-#             j_Kinvyc = torch.cholesky_solve(delta_j_yc,L,upper=False)
-#             j_update_term = torch.einsum('btc,bcs->bts',K_tc,j_Kinvyc).permute(0,2,1)
-#             update_term_list.append(j_update_term)
-#             #density_term_list.append(exp_term_tc.sum(dim=-1))
-#             density_term_list.append(K_tc.sum(dim=-1))
-
-#         return update_term_list,density_term_list,xt_list
-
-
-
-#     def sample_posterior_loop(self,xc,yc,xt,numsamples=1,reorder=False,iterratio=None):
-#         prior_shared_list, xa_shared = self.sample_prior_shared(xc,xt,numsamples=numsamples,reorder=False)
-#         prior_ind_list,xc_list,yc_list =  self.sample_prior_independent(xc,yc,numsamples=numsamples)
-        
-        
-#         xa_shared_ = xa_shared[...,None].repeat(1,1,1,self.num_channels)     
-#         #update_list,density_term_list,xt_list = self.prepare_updateterms(xc,yc, xa_shared,numsamples=numsamples)
-#         update_list,density_term_list,xt_list = self.prepare_updateterms(xc,yc, xa_shared_,numsamples=numsamples)
-
-        
-#         posterior_list = []
-#         for j,(j_prior,j_update) in enumerate(zip(prior_shared_list,update_list)):
-            
-#             #print('j_prior.shape,j_update.shape')
-#             #print(j_prior.shape,j_update.shape)
-            
-#             j_posterior = j_prior+j_update
-#             posterior_list.append(j_posterior)    
-            
-#         outs = AttrDict()
-#         #outs.xa_samples = xa_shared          #(nb,ndata2,ndim,nchannel)
-#         outs.xa_samples = xa_shared    #(nb,ndata2,ndim)                  
-#         outs.prior_samples = torch.cat([jth_prior.unsqueeze(dim=-1) for jth_prior in prior_shared_list],dim=-1)       
-#         outs.posterior_samples= torch.cat([ jth_posterior.unsqueeze(dim=-1) for jth_posterior in posterior_list],dim=-1)  
-#         outs.density = torch.cat([ jth_density.unsqueeze(dim=-1) for jth_density in density_term_list],dim=-1)  
-#         outs.regloss = torch.tensor(0.0).float()
-        
-#         #outs.prior_samples = posterior_list       
-#         #outs.prior_samples= torch.gather(outs.prior_samples,2,idx_reorder)                
-#         #outs.prior_density = denrep
-#         #outs.prior_datarep = datarep        
-#         #return  update_term,xa_samples,prior_samples,prior_yc,Kzx
-        
-#         return outs    
-
-
-
-    
-
-#     def prepare_updateterms_loop2(self,xc,yc,xa_shared=None,xt=None,numsamples=1):
-#         #xt_list = [xt[...,j] for j in range(xt.size(-1))]
-#         nb,ndata,ndim,nchannel = xc.shape
-
-
-#         mu = self.logmu.exp()
-#         inv_std  = 1/(self.logstd.exp()+eps)
-#         logits = F.softmax(self.loglogits,dim=-1)        
-#         likerr = self.loglik.exp()
-#         likerr_bound = self.loglik_bound
-
-#         if xa_shared is not None:
-#             xa_shared_ = xa_shared[...,None].repeat(1,1,1,nchannel)
-        
-#         K_cc_list,K_ac_list = [],[]
-#         for j in range(nchannel):    
-#             param_list_j = (mu,inv_std,logits[j],likerr[j])    
-#             K_cc,exp_term_cc = eval_smkernel(param_list_j, xc[...,j] , likerr_bound=likerr_bound)
-#             #K_ac,exp_term_tc = eval_smkernel(param_list_j, xa_shared , xc[...,j] , likerr_bound=likerr_bound)    
-#             K_ac,exp_term_tc = eval_smkernel(param_list_j, xa_shared_[...,j] , xc[...,j] , likerr_bound=likerr_bound)    
-            
-#             K_cc_list.append(K_cc.unsqueeze(dim=1))
-#             K_ac_list.append(K_ac.unsqueeze(dim=1))
-
-#         K_cc_ =  torch.cat(K_cc_list,dim=1)
-#         K_ac_ =  torch.cat(K_ac_list,dim=1)    
-#         #K_cc_.shape,K_ac_.shape
-#         L = torch.linalg.cholesky(K_cc_ )  
-        
-#         w_prior_ind = self.sample_prior_independent(xc,xt,numsamples=numsamples)        
-#         w_prior_ind =  w_prior_ind +  likerr[None,None,None,:]*torch.randn_like(w_prior_ind).to(xc.device)
-#         delta_yc = yc[:,None,:,:]  - w_prior_ind
-
-#         delta_yc = delta_yc.permute(0,3,2,1)
-#         Kinvyc = torch.cholesky_solve(delta_yc,L,upper=False)        
-        
-#         update_term = torch.einsum('bnac,bncs->bnas',K_ac_,Kinvyc).permute(0,3,2,1)        
-#         density_term = K_ac_.sum(dim=-1).permute(0,2,1)    
-#         return update_term,density_term 
-
-
-
-
-
- 
-
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-
-    
-    
-
-#-------------------------------------------------------------------------------------------------
-#num_mixtures = 3
-#num_mixtures = 6 #V47
-
-# class Spikeslab_GPsampler(nn.Module):        
-    
-#     #def __init__(self,nbasis=10,in_channels=3, nparams = 3, w_mu = None,w_std= None):
-# #     def __init__(self,kernel=None,in_dims=1,out_dims=1,num_channels=3, num_fourierbasis = 20,num_sampleposterior=10 ,
-# #                       scales=.1, loglik_err=1e-2, eps=1e-6,points_per_unit=64,multiplier=2**3):
-#     def __init__(self,in_dims=1,out_dims=1,num_channels=3, num_fourierbasis = 10,num_sampleposterior=10 ,
-#                       scales=.5, loglik_err=1e-2, eps=1e-6,points_per_unit=64,multiplier=2**3):
-        
-#         super(Spikeslab_GPsampler, self).__init__()
-#         #super(Multioutput_GPsampler, self).__init__()
-        
-#         self.in_dims = in_dims
-#         self.out_dims = out_dims
-#         self.num_channels = num_channels
-#         self.num_fourierbasis = num_fourierbasis
-#         #self.kernel = kernel
-#         #self.target_idx = self.kernel.target_idx                
-#         #self.cross_idx = self.kernel.cross_idx                
-        
-#         self.normal0 = Normal(loc=0.0,scale=1.0)
-#         self.uniform0 = Uniform(0,1)
-            
-#         self.points_per_unit = points_per_unit  
-#         self.multiplier = multiplier        
-#         #self.inverseuse = inverseuse
-#         self.regloss = 0.0
-        
-        
-# #         # learnable parameters
-# #         self.logp =    nn.Parameter( torch.log(eps  +  1.*torch.rand(in_dims,num_channels)) )  #much powerful                                                
-# #         self.logmu =    nn.Parameter( torch.log(eps  +  1.*torch.rand(in_dims,num_channels)) )                                               
-# #         self.logstd =   nn.Parameter( torch.log(eps + scales*torch.ones(in_dims,num_channels)) )          
-# #         self.loglik =   nn.Parameter( torch.log(eps + loglik_err*torch.ones(num_channels)) )
-# #         self.loglik_bound = [0.1*self.loglik.exp().min().item(),10*self.loglik.exp().max().item()]
-        
-#         self.num_mixtures = num_mixtures
-#         self.set_initparams(scales=scales,loglik_err = loglik_err,eps =eps)
-        
-            
-#         self.w=None
-#         self.b=None        
-#         self.normalizer=None
-#         self.random_w=None        
-#         #self.prior_scale = 0.5        
-#         self.prior_scale = 1.0              
-#         return 
-
-    
-    
-#     def set_initparams(self,scales=1.0,loglik_err=1e-2,eps=1e-6):
-#         # learnable parameters
-#         #logits = eps  +  1.*torch.rand(self.num_channels,self.num_mixtures)
-#         #logits = F.softmax(logits,dim=-1)
-#         #loglogits = eps  +  1.*torch.rand(self.num_channels,self.num_mixtures)
-#         loglogits = eps  +  1.*torch.ones(self.num_channels,self.num_mixtures)
-        
-        
-#         logmu = eps  +  1.*torch.rand(self.num_mixtures,self.in_dims)                
-#         logmu[0] = eps*torch.ones(self.in_dims) 
-#         #logmu = logmu.sort(dim=0)[0]
-#         #logstd = eps + scales*torch.ones(num_channels,in_dims)
-#         logstd = eps + scales*torch.ones(self.num_mixtures,self.in_dims)        
-#         loglik = eps + loglik_err*torch.ones(self.num_channels)
-        
-#         #self.logits =    nn.Parameter( logits )  #much powerful   
-#         self.loglogits =    nn.Parameter( torch.log( loglogits ) )  #much powerful                                                        
-        
-#         self.logmu =    nn.Parameter( torch.log( logmu )) 
-#         self.logstd =   nn.Parameter( torch.log( logstd ))                  
-#         self.loglik =   nn.Parameter( torch.log( loglik ))
-#         #self.loglik_bound = [0.1*self.loglik.exp().min().item(),10*self.loglik.exp().max().item()]
-#         self.loglik_bound = [0.1*self.loglik.exp().min().item(),10*self.loglik.exp().max().item()]
-        
-#         return 
-    
-    
-    
-#     def build_xgrid(self,xc,xt,x_thres=1.0):
-#         nb,_,ndim,nchannel=xc.size()         
-#         x_min = min(torch.min(xc).cpu().numpy(),torch.min(xt).cpu().numpy()) - x_thres
-#         x_max = max(torch.max(xc).cpu().numpy(),torch.max(xt).cpu().numpy()) + x_thres
-#         num_points = int(to_multiple(self.points_per_unit * (x_max - x_min),self.multiplier))                     
-#         xgrid = torch.linspace(x_min,x_max, num_points)
-#         xgrid = xgrid.reshape(1,num_points,1).repeat(nb,1,ndim).to(xc.device)
-#         return xgrid
-        
-    
-
-  
-#     #def sample_w_b(self,nb,eps=1e-6):    
-#     def sample_w_b(self,nb,nsamples,eps=1e-6):    
-        
-#         """
-#         self.w_mu : nparams
-#         sample_w  : (nb,nfourifbasis,indim,nchannels)
-#         sample_b  : (nb,nfouribasis,indim,nchannels)        
-#         """        
-#         # (num_mixtures,num_dim)
-#         mu,inv_std = self.logmu.exp(),1/(self.logstd.exp()+eps)
-        
-#         eps1 = self.normal0.sample((nb,nsamples*self.num_fourierbasis,self.num_mixtures,self.in_dims)).to(mu.device)
-#         eps2 = self.uniform0.sample((nb,nsamples*self.num_fourierbasis,self.num_mixtures,1)).to(mu.device)           
-#         #random_w = self.normal0.sample((nb,nsamples*self.num_fourierbasis,self.num_channels)).to(mu.device)
-#         #random_w = self.normal0.sample((nb,nsamples*self.num_fourierbasis,self.num_mixtures)).to(mu.device)
-#         random_w = self.normal0.sample((nb,nsamples*self.num_fourierbasis,self.num_mixtures,self.num_channels)).to(mu.device)
-
-#         sample_w = mu[None,None,:,:] + inv_std[None,None,:,:]*eps1    #(nb,nsamples*nfouierbasis,num_mixtures,in_dims)                
-#         sample_b = eps2                                                #(nb,nsamples*nfouierbasis,num_mixtures,in_dims)
-
-#         #return sample_w,sample_b,weight,random_w
-#         return sample_w,sample_b,random_w
-    
-    
-    
-    
-    
-    
-#     #def sample_prior_shared(self,xc,xt,numsamples=10,reorder=False, temperature= 1e-3):        
-#     def sample_prior_shared(self,xc,xt,numsamples=10,reorder=False, temperature= 1e-1):        
-        
-#         """
-#         inputs:
-#             xc : (nb,ncontext,ndim,nchannel)
-#             xt : (nb,ntarget,ndim,nchannel)        
-#         outputs:
-#             xa_samples : (nb,nchannel*(ncontext+ntarget),ndim)
-#             Psi_pred    : (nb,nchannel*(ncontext+ntarget),nchannel)      # assume y-value is 1-d      
-#         """
-#         nb = xc.size(0)
-#         #if xt in None:
-#         #xa_samples = self.samples_xa(xc,xt)                                                 #(nb,nchannel*(ncontext+ntarget),ndim)  
-#         xa_samples =self.build_xgrid(xc,xt)
-#         #w,b,normalizer,random_w = self.sample_w_b(nb,numsamples)                            #(nb,nbasis,indim,numchannels)    
-#         w,b,random_w = self.sample_w_b(nb,numsamples)                            #(nb,nbasis,indim,numchannels)    
-        
-#         self.w = w
-#         self.b = b
-#         self.random_w = random_w   
-        
-#         #(nb,nsamples*nfourier,in_dim,num_mixture)
-#         w = w.permute(0,1,3,2)
-#         b = b.permute(0,1,3,2)
-#         #b_ = b[:,None,:,:]
-#         #print(b.shape)
-#         xa_samples_ = xa_samples[:,None,:].repeat(1,w.size(1),1,1)
-        
-#         #print('xa_samples_.shape {}'.format(xa_samples_.shape))
-#         #print('w.shape {}'.format(w.shape))
-#         #xadotw = torch.einsum('bixy,bjyz->bijxz',xa_samples_,w)
-#         xadotw = torch.einsum('bjxy,bjyz->bjxz',xa_samples_,w)
-#         #print('xadotw.shape {}'.format(xadotw.shape))
-#         #print('b.shape {}'.format(b.shape))
-        
-#         if pi2repuse:            
-#             cos_interms = pi2*xadotw + pi2*b                   
-#         else:
-#             cos_interms = xadotw + pi2*b                 
-
-#         Psi = torch.cos(cos_interms)            
-#         nb,_,ndata2,nmixture = Psi.shape
-
-        
-#         Psi = Psi[...,None].repeat(1,1,1,1,self.num_channels)
-#         random_w = random_w[:,:,None,:,:]
-#         sum_costerm =  (Psi*random_w).reshape(nb,numsamples,self.num_fourierbasis,ndata2,nmixture,self.num_channels)
-#         sum_costerm = sum_costerm.sum(dim=2)
-
-#         normalizer = np.sqrt(2/self.num_fourierbasis)        
-#         prior_samples = normalizer*sum_costerm        
-
-        
-#         logits = F.softmax(self.loglogits,dim=-1)        
-#         logits_samples = sample_gumbel_softmax(logits, nb=nb, nsamples=numsamples, temperature= temperature)
-#         logits_samples_ = logits_samples.permute(0,1,3,2)[:,:,None,:,:]
-#         self.logits_samples = logits_samples
-#         w_prior_samples = (prior_samples*logits_samples_).sum(dim=-2)        
-#         #print('w_prior_samples.shape')        
-#         #print(w_prior_samples.shape)
-        
-# #         if reorder:
-# #             xa_samples,idx_reorder = xa_samples.sort(dim=1)
-# #             idx_reorder = idx_reorder[:,None,:,:] 
-# #             prior_samples= torch.gather(prior_samples,2,idx_reorder.repeat(1,numsamples,1,nchannel))        
-            
-#         prior_samples_list = [w_prior_samples[...,j] for j in range(prior_samples.size(-1))]
-#         return prior_samples_list,xa_samples             
-
-
-    
-    
-    
-    #def sample_prior_independent(self,xc,numsamples=10):    
-    #def sample_prior_independent(self,xc,numsamples=10):    
-    def sample_prior_independent_loop(self,xc,yc,numsamples=10):    
-        
-        """
-        inputs:
-            xc : (nb,ncontext,ndim,nchannel)
-        outputs:
-            Psi_pred : (nb,ncontext,nchannel)      # assume y-value is 1-d      
-        """        
-        nb,ndata,ndim,nchannel = xc.shape
-        w,b,normalizer,random_w = self.w, self.b, self.normalizer,self.random_w
-        w = w.permute(0,1,3,2)
-        b = b.permute(0,1,3,2)
-        logits_samples = self.logits_samples
-     
-        normalizer = np.sqrt(2/self.num_fourierbasis)
-        #normalizer = 1.
-        xc_list = []
-        yc_list = []
-        
-        prior_samples_list = []
-        for jch in range(nchannel):
-            j_xc = xc[...,jch]
-            j_xdotw = torch.einsum('nbd,nsdk->nsbk',j_xc,w)
-
-            if pi2repuse:            
-                cos_interms = pi2*j_xdotw + pi2*b                   
-            else:
-                cos_interms = j_xdotw + pi2*b                 
-
-            Psi = torch.cos(cos_interms)   
-            #print('Psi.shape,random_w.shape')
-            #print(Psi.shape,random_w.shape)
-            #nb,_,ndata,nmixutre = Psi.shape
-
-            sum_costerm = Psi*random_w[:,:,None,:,jch]            
-            nb,_,ndata,nmixture = sum_costerm.shape
-            sum_costerm = sum_costerm.reshape(nb,numsamples,-1,ndata,nmixture).sum(dim=2)            
-            prior_samples = normalizer*sum_costerm        
-            w_prior_samples = (prior_samples*logits_samples[:,:,jch,None,:]).sum(dim=-1)
-            
-            prior_samples_list.append(w_prior_samples)
-            xc_list.append(xc[...,jch])
-            yc_list.append(yc[...,jch])
-            
-#        return xc,w,b,random_w       
-        return prior_samples_list,xc_list,yc_list
-
-
-
-
-
-    def prepare_updateterms_loop(self,xc,yc,xt,numsamples=1):
-        #prior_shared, xa_shared = self.sample_prior_shared(xc,xt,numsamples=numsamples,reorder=False)
-        prior_ind_list,xc_list,yc_list = self.sample_prior_independent(xc,yc,numsamples=numsamples)
-
-
-        mu,inv_std = self.logmu.exp(),1/(self.logstd.exp()+eps)
-        #logits = self.logits
-        logits = F.softmax(self.loglogits,dim=-1)                
-        likerr = self.loglik.exp()
-        likerr_bound = self.loglik_bound
-
-        #if yt is None:
-        #xa_shared_ = xa_shared[...,0]    
-        xt_list = [xt[...,j] for j in range(xt.size(-1))]
-
-        update_term_list = []
-        density_term_list = []
-        for j,(j_xc,j_yc,j_xt,j_prior_ind) in enumerate(zip(xc_list,yc_list,xt_list,prior_ind_list)):
-            param_list_j = (mu,inv_std,logits[j],likerr[j])    
-            #K_cc = eval_smkernel(param_list_j, j_xc, likerr_bound=likerr_bound)
-            #K_tc = eval_smkernel(param_list_j, j_xt , j_xc, likerr_bound=likerr_bound)
-            
-            K_cc,exp_term_cc = eval_smkernel(param_list_j, j_xc , likerr_bound=likerr_bound)
-            K_tc,exp_term_tc = eval_smkernel(param_list_j, j_xt , j_xc, likerr_bound=likerr_bound)
-            #print('K_tc.shape {}'.format(K_tc.shape))
-            
-            
-            L = torch.linalg.cholesky(K_cc)      
-            j_prior_ind = j_prior_ind + likerr[j]*torch.randn_like(j_prior_ind).to(j_xc.device)
-            delta_j_yc = (j_yc[:,None,:] - j_prior_ind).permute(0,2,1)
-
-            j_Kinvyc = torch.cholesky_solve(delta_j_yc,L,upper=False)
-            j_update_term = torch.einsum('btc,bcs->bts',K_tc,j_Kinvyc).permute(0,2,1)
-            update_term_list.append(j_update_term)
-            #density_term_list.append(exp_term_tc.sum(dim=-1))
-            density_term_list.append(K_tc.sum(dim=-1))
-
-        return update_term_list,density_term_list,xt_list
-
-
-
-    def sample_posterior_loop(self,xc,yc,xt,numsamples=1,reorder=False,iterratio=None):
-        prior_shared_list, xa_shared = self.sample_prior_shared(xc,xt,numsamples=numsamples,reorder=False)
-        prior_ind_list,xc_list,yc_list =  self.sample_prior_independent(xc,yc,numsamples=numsamples)
-        
-        
-        xa_shared_ = xa_shared[...,None].repeat(1,1,1,self.num_channels)     
-        #update_list,density_term_list,xt_list = self.prepare_updateterms(xc,yc, xa_shared,numsamples=numsamples)
-        update_list,density_term_list,xt_list = self.prepare_updateterms(xc,yc, xa_shared_,numsamples=numsamples)
-
-        
-        posterior_list = []
-        for j,(j_prior,j_update) in enumerate(zip(prior_shared_list,update_list)):
-            
-            #print('j_prior.shape,j_update.shape')
-            #print(j_prior.shape,j_update.shape)
-            
-            j_posterior = j_prior+j_update
-            posterior_list.append(j_posterior)    
-            
-        outs = AttrDict()
-        #outs.xa_samples = xa_shared          #(nb,ndata2,ndim,nchannel)
-        outs.xa_samples = xa_shared    #(nb,ndata2,ndim)                  
-        outs.prior_samples = torch.cat([jth_prior.unsqueeze(dim=-1) for jth_prior in prior_shared_list],dim=-1)       
-        outs.posterior_samples= torch.cat([ jth_posterior.unsqueeze(dim=-1) for jth_posterior in posterior_list],dim=-1)  
-        outs.density = torch.cat([ jth_density.unsqueeze(dim=-1) for jth_density in density_term_list],dim=-1)  
-        outs.regloss = torch.tensor(0.0).float()
-        
-        #outs.prior_samples = posterior_list       
-        #outs.prior_samples= torch.gather(outs.prior_samples,2,idx_reorder)                
-        #outs.prior_density = denrep
-        #outs.prior_datarep = datarep        
-        #return  update_term,xa_samples,prior_samples,prior_yc,Kzx
-        
-        return outs    
-
-
-
-
-
-
- 
