@@ -10,8 +10,8 @@ from torch.autograd import Variable
 # )
 
 
-from .utils import gaussian_logpdf, init_sequential_weights, to_multiple
-
+#from .utils import gaussian_logpdf, init_layer_weights, init_sequential_weights, to_multiple
+from .utils import *
 
 def get_cnnmodels(modeltype='shallow'):
     if modeltype == 'shallow':
@@ -57,7 +57,6 @@ class cnn_shallow(nn.Module):
         
         return self.cnn(x) #out_dims = 8
         #return pad_concat(x, self.cnn(x)) #outs_dims = 2*8
-    
     
     
     

@@ -1,6 +1,9 @@
+"""
+reference: https://github.com/YannDubs/Neural-ProcessFamily/blob/master/npf/neuralproc/convnp.py
+"""
+
 import numpy as np
 import math
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F

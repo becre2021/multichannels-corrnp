@@ -1,3 +1,8 @@
+"""
+reference : https://github.com/cambridge-mlg/convcnp/blob/master/convcnp/utils.py
+"""
+
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -65,7 +70,6 @@ class BatchLinear(nn.Linear):
         x = x.view(num_functions * num_inputs, self.in_features)
         out = super(BatchLinear, self).forward(x)
         return out.view(num_functions, num_inputs, self.out_features)
-
 
 def init_layer_weights(layer):
     """Initialize the weights of a :class:`nn.Layer` using Glorot

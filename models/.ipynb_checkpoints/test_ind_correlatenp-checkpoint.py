@@ -36,7 +36,6 @@ def replicate_z_samples(t, n_z_samples):
 eps=1e-6    
 num_basis = 5
 num_fourierbasis = 10
-#num_fourierbasis = 50
 loglik_err = 0.1
 
 

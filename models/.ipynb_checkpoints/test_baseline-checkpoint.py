@@ -1,3 +1,7 @@
+"""
+reference: https://github.com/cambridge-mlg/convcnp/blob/master/convcnp/conv_cnp.py
+"""
+
 import numpy as np
 import math
 import torch
