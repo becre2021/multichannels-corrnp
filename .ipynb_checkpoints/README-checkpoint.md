@@ -42,7 +42,7 @@ We provide the implementation and experiment results for the paper: Bayesian Con
 
 ## Installation
 
-    git clone https://github.com/ABInferGSM/src.git
+    git clone https://github.com/becre2021/multichannels-corrnp.git
     if necessary, install the required module as follows
     pip3 install module-name
     ex) pip3 install numpy 
