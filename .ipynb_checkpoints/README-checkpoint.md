@@ -7,7 +7,7 @@
 We provide the implementation and experiment results for the paper: Bayesian Convolutional Deep Sets with Task-Dependent Stationary Prior
 
 <p align="center">
-    <img src="https://github.com/becre2021/multichannels-corrnp/tree/main/img/concept.PNG" width="500" height="250">
+    <img src="https://github.com/becre2021/multichannels-corrnp/blob/main/img//concept.PNG" width="400" height="250">
 </p>
 
  
