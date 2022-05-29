@@ -15,10 +15,10 @@ We provide the implementation and experiment results for the paper: Bayesian Con
 
 ### Proposed Methodology
 
-* models/test_gpsampler7.py : random data representation using the task-dependent stationary prior  in Eq. (10) (main)
-* models/test_dep_correlatenp.py : proposd NP model using a Bayesian Convolutional deep sets 
-* train_synthetic_task_single.py : train models for section 5.1 experiment
-* train_synthetic_task_multi.py : train models for section 5.2 experiment
+* models/test_gpsampler7.py : random data representation using the task-dependent stationary prior  in Eq. (9) (main)
+* models/test_dep_correlatenp.py : proposd NP model using a Bayesian Convolutional deep sets in Eqs. (10),(12) (main)       
+* train_synthetic_task_single.py : train models for section 5.1 experiment in Eqs. (13),(16),(17) (main)  
+* train_synthetic_task_multi.py : train models for section 5.2 experiment in Eqs. (13),(16),(17) (main)  
 
 
 ### Experiments
