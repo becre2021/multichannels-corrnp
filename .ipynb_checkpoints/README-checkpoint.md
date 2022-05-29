@@ -10,20 +10,20 @@ We provide the implementation and experiment results for the paper: Bayesian Con
  
 ## Description
 
-### Methods
+### Proposed Methodology
 
-<!-- * models/gp_rrff_reg.py : a sampling based variational inference (SVSS)
-* models_utility/spt_manager_train.py : a sampling strategy of Propoistion 2 
-* models_utility/personalized_adam.py : an approximate natural gradient update of Proposition 3
- -->
+* models/test_gpsampler7.py : random data representation using the task-dependent stationary prior  in Eq. (10) (main)
+* models/test_dep_correlatenp.py : proposd NP model using a Bayesian Convolutional deep sets 
+* train_synthetic_task_single.py : train models for section 5.1 experiment
+* train_synthetic_task_multi.py : train models for section 5.2 experiment
+
+
 ### Experiments
+* examples_construct_representation.ipynb : examples of random functional representation
+* examples_dataset_single.ipynb : examples of tasks for section 5.1 experiment
+* examples_task_single.ipynb : functional representation, prediction results, and qualitative analysis of task-dependent prior for section 5.1 experiment
+* examples_task_multi.ipynb : functional representation, prediction results, and qualitative analysis of task-dependent for section 5.2 experiment
 
-<!-- * exp1_main_section5-1.ipynb, exp2_main_section5-1.ipynb : validation of the weight sampling that reduces the error of ELBO estimator (main-expeiriment section 5.1)
-* main_ablationstudy.py : ablation study for SVSS (main-experiment section 5.2)
-* main_uci_regression.py, main_uci_regression_batch.py : a large-scale and high-dimensional UCI dataset regression (main-experiment section 5.3)
-* exp1_appendix.ipynb : validation of the scalable weight sampling (supplementary-experiment section 4.1)
-* SM kernel Recovery by SVSS-Ws.ipynb : SM kernel Recovery conducted in [experiment section 5.1](https://arxiv.org/pdf/1910.13565.pdf)
- -->
 
 ## Requirements
 
@@ -33,12 +33,6 @@ We provide the implementation and experiment results for the paper: Bayesian Con
 * scipy
 * attrdict
 
-
-## Dataset
-
-<!-- * datasets/uci_datasets/ : kin8nm and parkinsons set used in our experiment
-* datasets/uci_wilson/ : download [UCI Wilson dataset](https://drive.google.com/file/d/0BxWe_IuTnMFcYXhxdUNwRHBKTlU/view) and unzip the downloaded file
- -->
 
 ## Installation
 
