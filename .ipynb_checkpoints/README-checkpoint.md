@@ -21,8 +21,8 @@ We provide the implementation and experiment results for the paper: Bayesian Con
 ### Experiments
 * examples_construct_representation.ipynb : examples of random functional representation
 * examples_dataset_single.ipynb : examples of tasks for section 5.1 experiment
-* examples_task_single.ipynb : functional representation, prediction results, and qualitative analysis of task-dependent prior for section 5.1 experiment
-* examples_task_multi.ipynb : functional representation, prediction results, and qualitative analysis of task-dependent for section 5.2 experiment
+* examples_task_single.ipynb : experiment results for section 5.1 experiment
+* examples_task_multi.ipynb : experiment results for section 5.2 experiment
 
 
 ## Requirements
