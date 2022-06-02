@@ -4,7 +4,8 @@ import torch
 import numpy as np
 import torch.nn as nn 
 import matplotlib.pyplot as plt
-from dataset_multitask_1d import motask_generator
+#from dataset_multitask_1d import motask_generator
+from .dataset_multitask_1d import motask_generator
 
 import argparse
 parser = argparse.ArgumentParser(description='exp1')

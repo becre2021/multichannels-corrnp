@@ -167,12 +167,7 @@ class cnn_deep(nn.Module):
         h12 = self.activation(self.l12(h11))
 
         #print('pad_concat(x, h12).shape')        
-        #print(pad_concat(x, h12).shape)
-        
+        #print(pad_concat(x, h12).shape)        
         return pad_concat(x, h12)
         
-        
-        #if self.out_channels == 2*self.in_channels:           
-        #if self.out_channels == self.in_channels:        
-        #return x + h12
-        
+

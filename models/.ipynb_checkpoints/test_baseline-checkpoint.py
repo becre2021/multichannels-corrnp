@@ -358,15 +358,9 @@ class FinalLayer(nn.Module):
     
     
     
-    
-
-    
-
-    
-    
-    
-
-#     p_yCc = Normal(loc=pred_mu, scale=pred_std)    
+#----------------------------------------------
+#loss function
+#----------------------------------------------
 
 from torch.distributions.normal import Normal
 from torch.distributions.uniform import Uniform
@@ -409,43 +403,6 @@ def compute_loss_baseline( pred_mu, pred_std, target_y, intrain=True,reduce=True
     
     
     
-    
-    
-    
-    
-# from torch.distributions.normal import Normal
-# from torch.distributions.uniform import Uniform
-# # def compute_loss_baseline( pred_mu, pred_std, target_y):    
-# #     """
-# #     compute baselineloss    
-# #     """    
-# #     p_yCc = Normal(loc=pred_mu, scale=pred_std)    
-# #     log_p = p_yCc.log_prob(target_y)          # size = [batch_size, *]        
-# #     sumlog_p = log_p.sum(dim=(-2,-1))         # size = [batch_size]
-# #     #print('log_p.size(),sumlog_p.size()')    
-# #     #print( -sumlog_p.mean())
-# #     return -sumlog_p.mean()  #averages each loss over batches 
-
-    
-    
-
-# def compute_loss_baseline( pred_mu, pred_std, target_y, intrain=True):    
-#     """
-#     compute baselineloss    
-#     """    
-#     p_yCc = Normal(loc=pred_mu, scale=pred_std)    
-#     log_p = p_yCc.log_prob(target_y)          # size = [batch_size, *]        
-    
-#     if intrain:
-#         reduced_log_p = log_p.sum(dim=(-2,-1))         # size = [batch_size]
-#     else:
-#         reduced_log_p = log_p.mean(dim=(-2,-1))
-#         #print('log_p.size(),sumlog_p.size()')    
-#         #print( -sumlog_p.mean())
-#     return -reduced_log_p.mean()  #averages each loss over batches 
-
-    
-        
     
     
     

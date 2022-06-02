@@ -81,13 +81,7 @@ class Convcnp_latent(nn.Module):
         self.in_dims = 1
         self.out_dims = 1
         self.num_channels = num_channels
-#         self.encoder = ConvDeepSet(in_channels = self.num_channels,
-#                                    out_channels=self.rho.in_channels,
-#                                    init_length_scale=init_length_scale)
-#         self.rho = rho
-#         self.multiplier = 2 ** self.rho.num_halving_layers
-
-
+        
         self.encoder = ConvDeepSet(in_channels = self.num_channels,
                                    out_channels= 8,
                                    init_lengthscale=init_lengthscale)
@@ -107,8 +101,6 @@ class Convcnp_latent(nn.Module):
                                     init_lengthscale=init_lengthscale)
         
         
-#         pred_linear = nn.Sequential(nn.Linear(self.num_channels*self.nbasis,2*self.num_channels))         
-#         self.pred_linear = init_sequential_weights(pred_linear)
         
         self.pred_linear_mu = init_sequential_weights(nn.Sequential(nn.Linear(self.num_features,self.num_channels)))
         self.pred_linear_logstd = init_sequential_weights(nn.Sequential(nn.Linear(self.num_features,self.num_channels)))
@@ -275,17 +267,10 @@ class FinalLayer(nn.Module):
     def __init__(self,  in_channels=1, out_channels = 1, nbasis = 1, init_lengthscale = 1.0,min_init_lengthscale=1e-6):
         super(FinalLayer, self).__init__()
         
-        #self.out_channels = in_channels             
-        #self.in_channels_hidden = in_channels*self.out_channels       
         self.sigma_fn = torch.exp        
         self.nbasis = nbasis
         self.in_channels = in_channels        
-        self.out_channels = out_channels               
-                
-        #self.g = self.build_weight_model()
-        #linear = nn.Sequential(nn.Linear(self.nbasis, self.out_channels))
-        #self.g = init_sequential_weights(linear)
-        
+        self.out_channels = out_channels                               
         self.sigma = nn.Parameter(np.log(min_init_lengthscale+init_lengthscale*torch.ones(self.nbasis,self.in_channels)), requires_grad=True)          
         
         
@@ -332,75 +317,6 @@ class FinalLayer(nn.Module):
 
     
     
-        
-    
-    
-    
-    
-    
-    
-# def compute_loss_baselinelatent( pred_mu, pred_std, target_y, z_samples=None, qz_c=None, qz_ct=None):
-    
-#     """
-#     compute NLLLossLNPF
-#     # computes approximate LL in a numerically stable way
-#     # LL = E_{q(z|y_cntxt)}[ \prod_t p(y^t|z)]
-#     # LL MC = log ( mean_z ( \prod_t p(y^t|z)) )
-#     # = log [ sum_z ( \prod_t p(y^t|z)) ] - log(n_z_samples)
-#     # = log [ sum_z ( exp \sum_t log p(y^t|z)) ] - log(n_z_samples)
-#     # = log_sum_exp_z ( \sum_t log p(y^t|z)) - log(n_z_samples)
-    
-#     """
-    
-#     def sum_from_nth_dim(t, dim):
-#         """Sum all dims from `dim`. E.g. sum_after_nth_dim(torch.rand(2,3,4,5), 2).shape = [2,3]"""
-#         return t.view(*t.shape[:dim], -1).sum(-1)
-
-
-#     def sum_log_prob(prob, sample):
-#         """Compute log probability then sum all but the z_samples and batch."""    
-#         log_p = prob.log_prob(sample)          # size = [n_z_samples, batch_size, *]    
-#         sum_log_p = sum_from_nth_dim(log_p, 2) # size = [n_z_samples, batch_size]
-#         return sum_log_p
-
-    
-#     p_yCc = Normal(loc=pred_mu, scale=pred_std)    
-#     if qz_c is not None:
-#         qz_c = Normal(loc=qz_c[0], scale=qz_c[1])
-        
-#     if qz_ct is not None:
-#         qz_ct = Normal(loc=qz_ct[0], scale=qz_ct[1])
-        
-        
-#     n_z_samples, batch_size, *n_trgt = p_yCc.batch_shape    
-#     # \sum_t log p(y^t|z). size = [n_z_samples, batch_size]
-#     sum_log_p_yCz = sum_log_prob(p_yCc, target_y)
-
-    
-#     # uses importance sampling weights if necessary
-#     if z_samples is not None:
-#         # All latents are treated as independent. size = [n_z_samples, batch_size]
-#         sum_log_qz_c = sum_log_prob(qz_c, z_samples)
-#         sum_log_qz_ct = sum_log_prob(qz_ct, z_samples)
-#         # importance sampling : multiply \prod_t p(y^t|z)) by q(z|y_cntxt) / q(z|y_cntxt, y_trgt)
-#         # i.e. add log q(z|y_cntxt) - log q(z|y_cntxt, y_trgt)
-#         #print(sum_log_p_yCz, sum_log_qz_c, sum_log_qz_ct)
-#         sum_log_w_k = sum_log_p_yCz + sum_log_qz_c - sum_log_qz_ct
-#     else:
-#         sum_log_w_k = sum_log_p_yCz
-
-#     # log_sum_exp_z ... . size = [batch_size]
-#     log_S_z_sum_p_yCz = torch.logsumexp(sum_log_w_k, 0)
-#     # - log(n_z_samples)
-#     log_E_z_sum_p_yCz = log_S_z_sum_p_yCz - math.log(n_z_samples)    
-
-#     #print('log_E_z_sum_p_yCz {}'.format(log_E_z_sum_p_yCz.mean().item()))
-#     # NEGATIVE log likelihood
-#     #return -log_E_z_sum_p_yCz
-#     return -log_E_z_sum_p_yCz.mean()  #averages each loss over batches 
-
-    
-    
     
 def compute_loss_baselinelatent( pred_mu,pred_std, target_y , intrain=True ,reduce=True):
     """ compute loss for latent Np models
@@ -433,184 +349,6 @@ def compute_loss_baselinelatent( pred_mu,pred_std, target_y , intrain=True ,redu
         return  neglogloss.mean() 
     else:
         return  neglogloss 
-        
-#    return neglogloss
-
-    
-#     if intrain:
-#         reduced_log_p = log_p.sum(dim=(-2,-1))  # size = [batch_size]
-#         #neglogloss = -reduced_log_p  #averages each loss over batches 
-#         neglogloss = -reduced_log_p 
-        
-#     else:
-#         reduced_log_p = log_p.mean(dim=(-2,-1))
-#         #neglogloss = -reduced_log_p.mean()  #averages each loss over batches 
-#         neglogloss = -reduced_log_p
-   
-    
-    
-
-
-# def compute_loss_baselinelatent( pred_mu,pred_std, target_y , intrain=True):
-
-#     """
-#     compute NLLLossLNPF
-#     # computes approximate LL in a numerically stable way
-#     # LL = E_{q(z|y_cntxt)}[ \prod_t p(y^t|z)]
-#     # LL MC = log ( mean_z ( \prod_t p(y^t|z)) )
-#     # = log [ sum_z ( \prod_t p(y^t|z)) ] - log(n_z_samples)
-#     # = log [ sum_z ( exp \sum_t log p(y^t|z)) ] - log(n_z_samples)
-#     # = log_sum_exp_z ( \sum_t log p(y^t|z)) - log(n_z_samples)
-    
-#     """
-#     #(nsamples,nb,ndata,nchannels) 
-#     p_yCc = Normal(loc=pred_mu, scale=pred_std)                
-    
-#     if intrain:
-#         #(numsamples,nb) 
-#         sumlogprob = p_yCc.log_prob(target_y).sum(dim=(-1,-2))   #sum over channels and targets    
-#         logmeanexp_sumlogprob= torch.logsumexp(sumlogprob, dim=0) -  math.log(sumlogprob.size(0)) 
-
-#         #meanlogprob = p_yCc.log_prob(target_y).mean(dim=(-1,-2))     #mean over channels and targets 
-#         #logmeanexp_sumlogprob= torch.logsumexp(meanlogprob, dim=0) -  math.log(meanlogprob.size(0))     
-#     else :
-#         #(numsamples,nb) 
-#         #sumlogprob = p_yCc.log_prob(target_y).sum(dim=(-1,-2))   #sum over channels and targets    
-#         #logmeanexp_sumlogprob= torch.logsumexp(sumlogprob, dim=0) -  math.log(sumlogprob.size(0)) 
-
-#         meanlogprob = p_yCc.log_prob(target_y).mean(dim=(-1,-2))     #mean over channels and targets 
-#         logmeanexp_sumlogprob= torch.logsumexp(meanlogprob, dim=0) -  math.log(meanlogprob.size(0))     
-        
-#     return -logmeanexp_sumlogprob.mean() #mean over batches
-
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-
-    
-###########################################    
-# configuration for parameters
-#mu_scale = 0.1
-#init_length_scale = 0.01 #sin3
-#init_length_scale = 0.5 #matern 3
-
-
-    
-    
-    
-    
-    
-    
-    
-    
-    
-
-
-##########################################    
-# convset not necessary
-##########################################
-
-# import math
-# pi = math.pi
-# eps = 1e-6
-# class ConvDeepSet(nn.Module):
-#     """One-dimensional ConvDeepSet module. Uses an RBF kernel for psi(x, x').
-
-#     Args:
-#         out_channels (int): Number of output channels.
-#         init_length_scale (float): Initial value for the length scale.
-#     """
-
-#     def __init__(self, in_channels,out_channels, init_length_scale=1.0,min_init_length_scale=1e-6):
-#         super(ConvDeepSet, self).__init__()
-#         self.in_channels = in_channels        
-#         self.out_channels = out_channels
-#         self.g = self.build_weight_model()
-        
-                
-#         self.sigma = nn.Parameter(torch.log(min_init_length_scale+init_length_scale*torch.ones(self.in_channels)), requires_grad=True)        
-#         #self.mu = nn.Parameter(np.log(1* torch.rand(self.in_channels)), requires_grad=True)
-#         self.sigma_fn = torch.exp
-
-#     def build_weight_model(self):
-#         """Returns a point-wise function that transforms the
-#         (in_channels + 1)-dimensional representation to dimensionality
-#         out_channels.
-
-#         Returns:
-#             torch.nn.Module: Linear layer applied point-wise to channels.
-#         """
-#         #model = nn.Sequential(nn.Linear(self.in_channels, self.out_channels))
-#         model = nn.Sequential(nn.Linear(2*self.in_channels, self.out_channels))
-        
-#         init_sequential_weights(model)
-#         return model
-    
-        
-    
-#     def compute_rbf(self,x1,x2=None):
-#         if x2 is None:
-#             x2 = x1            
-#         # Compute shapes.            
-#         nbatch,npoints,nchannel = x1.size()
-        
-#         #compute rbf over multiple channels
-#         dists = x1.unsqueeze(dim=2) - x2.unsqueeze(dim=1)        
-#         scales = self.sigma_fn(self.sigma)[None, None, None, :]                
-        
-#         factors = 1
-#         if dists.size(-1) != scales.size(-1):
-#             factors = scales.size(-1) // dists.size(-1) 
-#             dists = dists.repeat(1,1,1,factors)
-#         #print(dists.size(),scales.size())
-        
-        
-#         dists /= (scales + eps)
-#         wt = torch.exp(-0.5*dists**2)   
-#         return wt,factors
-        
-#     def forward(self, context_x, context_y, x_grid):
-#         """Forward pass through the layer with evaluations at locations t.
-
-#         Args:
-#             x (tensor): Inputs of observations of shape (n, 1).
-#             y (tensor): Outputs of observations of shape (n, in_channels).
-#             t (tensor): Inputs to evaluate function at of shape (m, 1).
-
-#         Returns:
-#             tensor: Outputs of evaluated function at z of shape
-#                 (m, out_channels).
-#         """
-
-
-#         nbatch,npoints,nchannel = context_x.size()
-#         wt,factors = self.compute_rbf(context_x,x_grid)
-#         h0 = wt.sum(dim=1)
-
-#         if factors > 1:
-#             context_y = context_y.repeat(1,1,factors)
-        
-#         h1 = (context_y.unsqueeze(dim=-2)*wt).sum(dim=1)
-#         n_h1 = h1/(h0+eps)        
-        
-#         y_out = torch.cat((h0, n_h1), dim=-1)    #(nbatch, ngrid,2*noutchannel)         
-#         y_out = y_out.view(-1,2*self.in_channels)  #(nbatch, ngrid,2*noutchannel) 
-#         y_out = self.g(y_out)
-#         y_out = y_out.view(nbatch, -1, self.out_channels) #(nbatch, ngrid,noutchannel)
-
-#         #return y_out,h1,h0
-#         return y_out,n_h1,h1,h0
-    
-    
-    
     
     
     

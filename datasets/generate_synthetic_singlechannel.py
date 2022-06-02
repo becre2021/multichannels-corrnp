@@ -6,8 +6,8 @@ import torch.nn as nn
 import matplotlib.pyplot as plt
 
 #from dataset_multitask_1d import motask_generator
-from dataset_singletask_1d import prepare_mixed_1dtask, task_list
-
+#from dataset_singletask_1d import prepare_mixed_1dtask, task_list
+from .dataset_singletask_1d import prepare_mixed_1dtask, task_list
 
 
 

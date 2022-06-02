@@ -1,5 +1,3 @@
-
-
 from .test_cnp import RegressionCNP,RegressionANP    
 from .test_baseline import Convcnp
 from .test_baseline_latent import Convcnp_latent

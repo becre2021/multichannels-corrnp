@@ -46,24 +46,15 @@ def eval_smkernel_batch(param_list,xc,xt=None, likerr_bound=[.1,1.0], zitter=1e-
     xt_ = xt.unsqueeze(dim=1)
               
     assert len(param_list) == 4    
-    
-#     #(nmixutre,ndim),(nmixutre,ndim),(nmixutre),(1)
-#     mu,inv_std,logits,likerr = param_list         
-#     mu_=mu[None,:,None,:,None]
-#     inv_std_=inv_std[None,:,None,:,None] 
 
     #(nchannel,ndim),(nchannel,ndim),(nchannel),(1)
     mu,inv_std,logits,likerr = param_list         
-    #mu_=mu[None,:,None,:,None]
-    #inv_std_=inv_std[None,:,None,:,None] 
     mu_=mu.permute(1,0)[None,None,:,:]
     inv_std_=inv_std.permute(1,0)[None,None,:,:]
     
     #(nb,ndata,ndim,nchannel)
     xc_ = xc
     xt_ = xt
-    #xc_.shape,xt_.shape
-
     exp_xc_ = xc_*inv_std_
     exp_xt_ = xt_*inv_std_
     cos_xc_ = xc_*mu_
@@ -98,14 +89,6 @@ def eval_smkernel_batch(param_list,xc,xt=None, likerr_bound=[.1,1.0], zitter=1e-
     
 
 
-#num_mixtures = 3
-#num_mixtures = 5
-#num_mixtures = 10
-
-#class NeuralSpikeslab_GPsampler(nn.Module):        
-#class Spikeslab_GPsampler(nn.Module):     
-
-
 
 class Independent_GPsampler(nn.Module):           
     def __init__(self,in_dims=1,out_dims=1,num_channels=3, num_fourierbasis = 10,num_sampleposterior=10 ,
@@ -117,9 +100,6 @@ class Independent_GPsampler(nn.Module):
         self.out_dims = out_dims
         self.num_channels = num_channels
         self.num_fourierbasis = num_fourierbasis
-        #self.kernel = kernel
-        #self.target_idx = self.kernel.target_idx                
-        #self.cross_idx = self.kernel.cross_idx                
         
         self.normal0 = Normal(loc=0.0,scale=1.0)
         self.uniform0 = Uniform(0,1)
@@ -143,25 +123,13 @@ class Independent_GPsampler(nn.Module):
         self.temperature= 1e-3        
         
         self.use_constrainedprior = False #True means density aware prior 
-        #self.use_constrainedprior = True #True means density aware prior 
         
         return 
 
     
     
     def set_initparams(self,scales=1.0,loglik_err=1e-2,eps=1e-6):
-        # learnable parameters
-        #loglogits = eps  +  1.*torch.rand(self.num_channels,self.num_mixtures)
-        #loglogits = eps  +  1.*torch.ones(self.num_channels,self.num_mixtures)
-        #loglogits +=  0.1*torch.rand(self.num_channels,self.num_mixtures)
-        
-#         #logmu = eps  +  1.*torch.rand(self.num_mixtures,self.in_dims)                
-#         logmu = eps  +  eps*torch.rand(self.num_mixtures,self.in_dims)   #rbf kerenl             
-#         logmu[0] = eps*torch.ones(self.in_dims) 
-#         logstd = eps + scales*torch.ones(self.num_mixtures,self.in_dims)        
-#         loglik = eps + loglik_err*torch.ones(self.num_channels)
-
-
+ 
 
         #---------------------------------
         # single-channl tasks in section 5-1    
@@ -231,12 +199,6 @@ class Independent_GPsampler(nn.Module):
     
     def bound_hypparams(self,bound_std = [1.,2.]):
         pass
-        #bound_logstd = np.log(bound_std)
-        #with torch.no_grad():
-        #    self.logstd.data.clip_(bound_logstd[0],bound_logstd[1])
-        #    
-        #print('param_list')
-        #print(self.param_list)
         return
     
     
@@ -252,9 +214,6 @@ class Independent_GPsampler(nn.Module):
         
     
 
-  
-    #def sample_w_b(self,nb,eps=1e-6):    
-    #def sample_w_b(self,nb,nsamples,eps=1e-6):    
     def sample_w_b(self,xc,yc,nsamples,eps=1e-6,tempering=10.):    
         
         """
@@ -272,9 +231,7 @@ class Independent_GPsampler(nn.Module):
         eps1 = self.normal0.sample((nb,nsamples*self.num_fourierbasis,self.num_channels,self.in_dims)).to(mu.device)
         eps2 = self.uniform0.sample((nb,nsamples*self.num_fourierbasis,self.num_channels,1)).to(mu.device)           
         
-        #print('allow channel dependency')
-        #random_w = self.normal0.sample((nb,nsamples*self.num_fourierbasis,self.num_mixtures,1)).to(mu.device) #impose depedency over channels
-        #random_w = self.normal0.sample((nb,nsamples*self.num_fourierbasis,self.num_mixtures,self.num_channels)).to(mu.device) #impose depedency over channels
+
         random_w = self.normal0.sample((nb,nsamples*self.num_fourierbasis,self.num_channels)).to(mu.device) #impose depedency over channels        
         sample_w = mu[None,None,:,:] + inv_std[None,None,:,:]*eps1    #(nb,nsamples*nfouierbasis,num_mixtures,in_dims)                
         sample_b = eps2                                                #(nb,nsamples*nfouierbasis,num_mixtures,in_dims)
@@ -286,8 +243,6 @@ class Independent_GPsampler(nn.Module):
     
     
     
-    #def sample_prior_shared(self,xc,xt,numsamples=10,reorder=False, temperature= 1e-3):        
-    #def sample_prior_shared(self,xc,xt,numsamples=10,reorder=False):        
     def sample_prior_shared(self,xc,yc,xt,numsamples=10,reorder=False):        
         
         """
@@ -302,16 +257,10 @@ class Independent_GPsampler(nn.Module):
         #if xt in None:
         #xa_samples = self.samples_xa(xc,xt)                                                 #(nb,nchannel*(ncontext+ntarget),ndim)  
         xa_samples =self.build_xgrid(xc,xt)
-        w,b,random_w = self.sample_w_b(xc,yc,numsamples)    
-        
-        #print('logits_samples.shape')
-        #print(logits_samples.shape)
-        
+        w,b,random_w = self.sample_w_b(xc,yc,numsamples)                    
         self.w = w
         self.b = b
         self.random_w = random_w   
-        
-        
         
         #(nb,nsamples*nfourier,in_dim,num_channels)
         w = w.permute(0,1,3,2)
@@ -368,7 +317,6 @@ class Independent_GPsampler(nn.Module):
         
         Psi = torch.cos(xcdotw_b)        
         sum_costerm = Psi*random_w[:,:,None,:]
-        #sum_costerm_ = sum_costerm.reshape(nb,numsamples,-1,ndata,self.num_mixtures,nchannel)
         sum_costerm_ = sum_costerm.reshape(nb,numsamples,-1,ndata,self.num_channels)
         
         normalizer = np.sqrt(2/self.num_fourierbasis)
@@ -400,9 +348,7 @@ class Independent_GPsampler(nn.Module):
         
         K_cc_ = K_cc.permute(0,3,1,2) 
         K_ac_ = K_ac.permute(0,3,1,2) #(nb,nchannel,ndata2,ndata)
-        #K_cc_.shape,K_ac_.shape
         L = torch.linalg.cholesky(K_cc_ )          
-        #w_prior_ind = self.sample_prior_independent(xc,xt,numsamples=numsamples)        
         w_prior_ind = self.sample_prior_independent(xc,numsamples=numsamples)                
         w_prior_ind =  w_prior_ind +  likerr[None,None,None,:]*torch.randn_like(w_prior_ind).to(xc.device)
         density_term = K_ac_.sum(dim=-1).permute(0,2,1)    
@@ -432,13 +378,9 @@ class Independent_GPsampler(nn.Module):
     
     
 
-    #def sample_posterior(self,xc,yc,xt,numsamples=1,reorder=False,iterratio=None,use_constrainedprior=False):
     def sample_posterior(self,xc,yc,xt,numsamples=1,reorder=False,iterratio=None,use_constrainedprior=True):
         
-        #prior_shared, xa_shared = self.sample_prior_shared(xc,xt,numsamples=numsamples)
-        prior_shared, xa_shared = self.sample_prior_shared(xc,yc,xt,numsamples=numsamples)
-                
-        #update_term,density_term = self.prepare_updateterms(xc,yc,xa_shared=xa_shared,numsamples=numsamples)
+        prior_shared, xa_shared = self.sample_prior_shared(xc,yc,xt,numsamples=numsamples)                
         update_term_shared, density_term, update_term_target = self.prepare_updateterms(xc,yc,xa_shared=xa_shared,xt=xt,numsamples=numsamples)               
                 
         if self.use_constrainedprior:        
